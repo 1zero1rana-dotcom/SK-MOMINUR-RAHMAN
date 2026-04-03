@@ -26,7 +26,29 @@
         "thumbnail": { "type": "string" },
         "instructor": { "type": "string" },
         "price": { "type": "number" },
-        "chapters": { "type": "array" },
+        "chapters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "lessons": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "title": { "type": "string" },
+                    "videoUrl": { "type": "string" },
+                    "duration": { "type": "string" },
+                    "isFree": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        },
         "stats": { "type": "object" },
         "createdAt": { "type": "string", "format": "date-time" }
       },

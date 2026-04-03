@@ -1,10 +1,39 @@
-import { Link } from "react-router-dom";
-import { BookOpen, LogIn, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { BookOpen, LogIn, Menu, X, ShieldCheck, User, LogOut, ChevronDown } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "../lib/utils";
+import { useAuth } from "../contexts/AuthContext";
+import { auth } from "../firebase";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { user, role, loading } = useAuth();
+  const navigate = useNavigate();
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      setIsProfileOpen(false);
+      setIsOpen(false);
+      await auth.signOut();
+      navigate("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  if (loading) return null; // Or a minimal skeleton
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/80 backdrop-blur-md">
@@ -24,18 +53,70 @@ export default function Navbar() {
           <Link to="/about" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">About</Link>
           <Link to="/community" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">Community</Link>
           <div className="h-4 w-[1px] bg-gray-200" />
-          <Link 
-            to="/dashboard" 
-            className="flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
-          >
-            Dashboard
-          </Link>
-          <Link 
-            to="/register" 
-            className="rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-indigo-700 transition-all hover:shadow-indigo-200"
-          >
-            Join Now
-          </Link>
+          
+          {user ? (
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2 rounded-full bg-gray-50 p-1.5 pr-3 transition-all hover:bg-gray-100 ring-1 ring-gray-200"
+              >
+                <img
+                  src={user.photoURL || `https://i.pravatar.cc/100?u=${user.uid}`}
+                  alt="Profile"
+                  className="h-8 w-8 rounded-full border border-white shadow-sm"
+                />
+                <span className="text-sm font-bold text-gray-700">{user.displayName?.split(' ')[0] || 'Student'}</span>
+                <ChevronDown className={cn("h-4 w-4 text-gray-400 transition-transform", isProfileOpen && "rotate-180")} />
+              </button>
+
+              {isProfileOpen && (
+                <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-black/5 focus:outline-none">
+                  <div className="px-4 py-3 border-b border-gray-50 mb-2">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Signed in as</p>
+                    <p className="truncate text-sm font-bold text-gray-900">{user.email}</p>
+                  </div>
+                  
+                  {role === "admin" && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                    >
+                      <ShieldCheck className="h-5 w-5" />
+                      Admin Panel
+                    </Link>
+                  )}
+                  
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <User className="h-5 w-5 text-gray-400" />
+                    My Dashboard
+                  </Link>
+                  
+                  <button
+                    onClick={handleSignOut}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">Login</Link>
+              <Link 
+                to="/register" 
+                className="rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-indigo-700 transition-all hover:shadow-indigo-200"
+              >
+                Join Now
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile menu button */}
@@ -52,11 +133,30 @@ export default function Navbar() {
       {/* Mobile Nav */}
       <div className={cn("md:hidden", isOpen ? "block" : "hidden")}>
         <div className="space-y-1 px-2 pb-3 pt-2 sm:px-3 border-t border-gray-100 bg-white">
-          <Link to="/courses" className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">Courses</Link>
-          <Link to="/about" className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">About</Link>
-          <Link to="/community" className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">Community</Link>
-          <Link to="/login" className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">Login</Link>
-          <Link to="/register" className="mt-4 block w-full rounded-full bg-indigo-600 px-3 py-3 text-center text-base font-semibold text-white shadow-md">Join Now</Link>
+          <Link to="/courses" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">Courses</Link>
+          <Link to="/about" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">About</Link>
+          <Link to="/community" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">Community</Link>
+          
+          {user ? (
+            <>
+              <div className="h-[1px] bg-gray-100 my-2" />
+              {role === "admin" && (
+                <Link to="/admin" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-bold text-indigo-600 hover:bg-indigo-50">Admin Panel</Link>
+              )}
+              <Link to="/dashboard" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-bold text-indigo-600 hover:bg-indigo-50">My Dashboard</Link>
+              <button 
+                onClick={() => { handleSignOut(); setIsOpen(false); }}
+                className="block w-full text-left rounded-md px-3 py-2 text-base font-bold text-red-600 hover:bg-red-50"
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">Login</Link>
+              <Link to="/register" onClick={() => setIsOpen(false)} className="mt-4 block w-full rounded-full bg-indigo-600 px-3 py-3 text-center text-base font-semibold text-white shadow-md">Join Now</Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

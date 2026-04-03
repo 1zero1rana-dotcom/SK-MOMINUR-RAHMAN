@@ -1,13 +1,24 @@
 import { motion } from "motion/react";
 import CourseCard from "../components/CourseCard";
-import { HSC_ICT_COURSES } from "../constants";
 import { Search, Filter, BookOpen, GraduationCap, Code } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 
 const categories = ["All", "Academic", "Admission", "Programming", "Web Design"];
 
 export default function Courses() {
   const [activeCategory, setActiveCategory] = useState("All");
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "courses"), (snapshot) => {
+      setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
   return (
     <main className="bg-gray-50 min-h-screen pb-24">
@@ -69,11 +80,19 @@ export default function Courses() {
       {/* Course Grid */}
       <section className="py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {HSC_ICT_COURSES.map((course) => (
-              <CourseCard key={course.id} course={course} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="py-12 text-center text-gray-500">No courses available yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {courses.map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </main>

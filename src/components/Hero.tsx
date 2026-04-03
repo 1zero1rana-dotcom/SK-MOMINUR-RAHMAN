@@ -1,8 +1,10 @@
 import { motion } from "motion/react";
 import { Play, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Hero() {
+  const { user } = useAuth();
   return (
     <section className="relative overflow-hidden bg-white pt-16 pb-24 lg:pt-32 lg:pb-40">
       {/* Background decoration */}
@@ -34,10 +36,10 @@ export default function Hero() {
 
             <div className="flex flex-wrap gap-4">
               <Link
-                to="/courses"
+                to={user ? "/dashboard" : "/courses"}
                 className="group flex items-center gap-2 rounded-full bg-indigo-600 px-8 py-4 text-lg font-bold text-white shadow-xl shadow-indigo-200 transition-all hover:bg-indigo-700 hover:shadow-indigo-300"
               >
-                Get Started
+                {user ? "Go to Dashboard" : "Get Started"}
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
               <button className="flex items-center gap-3 rounded-full bg-white px-8 py-4 text-lg font-bold text-gray-900 ring-1 ring-gray-200 transition-all hover:bg-gray-50">

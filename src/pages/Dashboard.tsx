@@ -5,14 +5,54 @@ import EnrolledCourseCard from "../components/Dashboard/EnrolledCourseCard";
 import UpcomingTasks from "../components/Dashboard/UpcomingTasks";
 import { ArrowRight, Play } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { collection, query, where, onSnapshot, getDoc, doc } from "firebase/firestore";
+import { db, auth } from "../firebase";
 
-const enrolledCourses = [
-  { id: "hsc-ict-full", title: "HSC ICT Full Course (Academic)", thumbnail: "https://picsum.photos/seed/ict1/800/600", progress: 65, lastLesson: "Logic Gates" },
-  { id: "c-programming", title: "C Programming Masterclass", thumbnail: "https://picsum.photos/seed/code/800/600", progress: 30, lastLesson: "Variables & Data Types" },
-  { id: "web-design", title: "Web Design for Beginners", thumbnail: "https://picsum.photos/seed/web/800/600", progress: 10, lastLesson: "HTML Tags" },
-];
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Dashboard() {
+  const { user, loading: authLoading } = useAuth();
+  const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (user) {
+      const q = query(
+        collection(db, "enrollments"),
+        where("userId", "==", user.uid),
+        where("status", "==", "active")
+      );
+
+      const unsubEnrollments = onSnapshot(q, async (snapshot) => {
+        const coursesData = await Promise.all(
+          snapshot.docs.map(async (enrollmentDoc) => {
+            const enrollment = enrollmentDoc.data();
+            const courseSnap = await getDoc(doc(db, "courses", enrollment.courseId));
+            if (courseSnap.exists()) {
+              return {
+                id: courseSnap.id,
+                ...courseSnap.data(),
+                enrollmentId: enrollmentDoc.id,
+                progress: enrollment.progress || 0,
+                lastLesson: enrollment.lastLesson || "Not started"
+              };
+            }
+            return null;
+          })
+        );
+        setEnrolledCourses(coursesData.filter(c => c !== null));
+        setLoading(false);
+      });
+
+      return () => unsubEnrollments();
+    } else {
+      setLoading(false);
+    }
+  }, [user, authLoading]);
+
   return (
     <div className="flex min-h-screen bg-gray-50 pt-16">
       <DashboardSidebar />
@@ -22,9 +62,13 @@ export default function Dashboard() {
           <header className="mb-12 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">
-                Welcome back, <span className="text-indigo-600">Redwan!</span>
+                Welcome back, <span className="text-indigo-600">{user?.displayName?.split(' ')[0] || 'Student'}!</span>
               </h1>
-              <p className="mt-2 text-lg text-gray-600">You've completed 65% of your current course. Keep it up!</p>
+              <p className="mt-2 text-lg text-gray-600">
+                {enrolledCourses.length > 0 
+                  ? `You have ${enrolledCourses.length} active courses. Keep learning!`
+                  : "You haven't enrolled in any courses yet. Start your journey today!"}
+              </p>
             </div>
             <Link
               to="/courses"
@@ -46,11 +90,22 @@ export default function Dashboard() {
                   <h2 className="text-2xl font-black text-gray-900">Continue Learning</h2>
                   <Link to="/dashboard/courses" className="text-sm font-bold text-indigo-600 hover:underline">View All</Link>
                 </div>
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                  {enrolledCourses.slice(0, 2).map((course) => (
-                    <EnrolledCourseCard key={course.id} course={course} />
-                  ))}
-                </div>
+                {loading ? (
+                  <div className="flex justify-center py-12">
+                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+                  </div>
+                ) : enrolledCourses.length === 0 ? (
+                  <div className="rounded-3xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-100">
+                    <p className="text-gray-500 font-medium">No enrolled courses found.</p>
+                    <Link to="/courses" className="mt-4 inline-block text-indigo-600 font-bold hover:underline">Browse Courses</Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+                    {enrolledCourses.slice(0, 2).map((course) => (
+                      <EnrolledCourseCard key={course.id} course={course} />
+                    ))}
+                  </div>
+                )}
               </section>
 
               {/* Recent Activity or Progress Chart could go here */}

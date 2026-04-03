@@ -1,8 +1,44 @@
 import { motion } from "motion/react";
 import { Mail, Lock, ArrowRight, Github, Chrome } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { auth, db } from "../firebase";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useState } from "react";
 
 export default function Login() {
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGoogleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if user exists in Firestore, if not create
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        const isInitialAdmin = user.email === "1zero1rana@gmail.com";
+        await setDoc(userDocRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          role: isInitialAdmin ? "admin" : "student",
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error("Error during Google Sign-in:", error);
+      setError(error.message);
+    }
+  };
+
   return (
     <main className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <motion.div
@@ -20,7 +56,13 @@ export default function Login() {
           </p>
         </div>
 
-        <form className="mt-8 space-y-6">
+        {error && (
+          <div className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-600 ring-1 ring-red-100">
+            {error}
+          </div>
+        )}
+
+        <form className="mt-8 space-y-6" onSubmit={(e) => e.preventDefault()}>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-bold text-gray-700">Email Address</label>
@@ -85,11 +127,18 @@ export default function Login() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <button className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white py-3 text-sm font-bold text-gray-900 ring-1 ring-gray-200 transition-all hover:bg-gray-50">
+            <button 
+              type="button"
+              onClick={handleGoogleSignIn}
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white py-3 text-sm font-bold text-gray-900 ring-1 ring-gray-200 transition-all hover:bg-gray-50"
+            >
               <Chrome className="h-5 w-5" />
               Google
             </button>
-            <button className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white py-3 text-sm font-bold text-gray-900 ring-1 ring-gray-200 transition-all hover:bg-gray-50">
+            <button 
+              type="button"
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white py-3 text-sm font-bold text-gray-900 ring-1 ring-gray-200 transition-all hover:bg-gray-50"
+            >
               <Github className="h-5 w-5" />
               GitHub
             </button>

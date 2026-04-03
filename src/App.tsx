@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Courses from "./pages/Courses";
 import Payment from "./pages/Payment";
 import AdminDashboard from "./pages/AdminDashboard";
+import CoursePlayer from "./pages/CoursePlayer";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="admin" element={<AdminDashboard />} />
           <Route path="admin/*" element={<AdminDashboard />} />
         </Route>
+        <Route path="course/:id/learn" element={<CoursePlayer />} />
       </Routes>
     </Router>
   );

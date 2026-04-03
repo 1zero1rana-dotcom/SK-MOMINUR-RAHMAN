@@ -1,14 +1,60 @@
 import { useParams, Link } from "react-router-dom";
-import { HSC_ICT_COURSES } from "../constants";
 import { motion, AnimatePresence } from "motion/react";
 import { Play, CheckCircle2, Users, BookOpen, Star, Clock, ChevronRight, Lock, Trophy } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "../lib/utils";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { db, auth } from "../firebase";
 
 export default function CourseDetails() {
   const { id } = useParams();
-  const course = HSC_ICT_COURSES.find((c) => c.id === id);
-  const [activeChapter, setActiveChapter] = useState<string | null>(course?.chapters[0].id || null);
+  const [course, setCourse] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [activeChapter, setActiveChapter] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCourse = async () => {
+      if (!id) return;
+      try {
+        const docRef = doc(db, "courses", id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const courseData: any = { id: docSnap.id, ...docSnap.data() };
+          setCourse(courseData);
+          if (courseData.chapters?.length > 0) {
+            setActiveChapter(courseData.chapters[0].id);
+          }
+        }
+
+        // Check enrollment if user is logged in
+        if (auth.currentUser) {
+          const q = query(
+            collection(db, "enrollments"), 
+            where("userId", "==", auth.currentUser.uid),
+            where("courseId", "==", id),
+            where("status", "==", "active")
+          );
+          const enrollmentSnap = await getDocs(q);
+          setIsEnrolled(!enrollmentSnap.empty);
+        }
+      } catch (error) {
+        console.error("Error fetching course details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourse();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   if (!course) {
     return <div className="py-24 text-center text-4xl font-black">Course Not Found</div>;
@@ -37,22 +83,22 @@ export default function CourseDetails() {
                 </div>
                 <div className="flex items-center gap-2 text-sm font-medium text-indigo-200">
                   <Users className="h-5 w-5 text-indigo-400" />
-                  {course.stats.students.toLocaleString()} Students
+                  {course.studentsCount || 0} Students
                 </div>
                 <div className="flex items-center gap-2 text-sm font-medium text-indigo-200">
                   <BookOpen className="h-5 w-5 text-indigo-400" />
-                  {course.stats.lessons} Lessons
+                  {course.chapters?.reduce((acc: number, ch: any) => acc + (ch.lessons?.length || 0), 0)} Lessons
                 </div>
               </div>
               <div className="flex items-center gap-4">
                 <img
                   src="https://i.pravatar.cc/150?u=redwan"
-                  alt={course.instructor}
+                  alt="Redwan Master"
                   className="h-12 w-12 rounded-full border-2 border-indigo-500"
                 />
                 <div>
                   <p className="text-sm font-bold text-white">Instructor</p>
-                  <p className="text-lg font-black text-indigo-300">{course.instructor}</p>
+                  <p className="text-lg font-black text-indigo-300">Redwan Master</p>
                 </div>
               </div>
             </div>
@@ -107,7 +153,7 @@ export default function CourseDetails() {
               <div>
                 <h2 className="mb-6 text-2xl font-black text-gray-900">Course Content</h2>
                 <div className="space-y-4">
-                  {course.chapters.map((chapter) => (
+                  {course.chapters?.map((chapter: any, idx: number) => (
                     <div
                       key={chapter.id}
                       className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100"
@@ -118,12 +164,12 @@ export default function CourseDetails() {
                       >
                         <div className="flex items-center gap-4">
                           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 font-bold">
-                            {chapter.id.replace('ch', '')}
+                            {idx + 1}
                           </div>
                           <div>
                             <h3 className="font-bold text-gray-900">{chapter.title}</h3>
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                              {chapter.lessons.length} Lessons • 2h 45m
+                              {chapter.lessons?.length || 0} Lessons
                             </p>
                           </div>
                         </div>
@@ -139,7 +185,7 @@ export default function CourseDetails() {
                             className="overflow-hidden border-t border-gray-50"
                           >
                             <div className="divide-y divide-gray-50">
-                              {chapter.lessons.map((lesson) => (
+                              {chapter.lessons?.map((lesson: any) => (
                                 <div key={lesson.id} className="flex items-center justify-between p-4 px-6 hover:bg-gray-50">
                                   <div className="flex items-center gap-4">
                                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
@@ -147,10 +193,14 @@ export default function CourseDetails() {
                                     </div>
                                     <div>
                                       <p className="text-sm font-bold text-gray-700">{lesson.title}</p>
-                                      <p className="text-xs font-medium text-gray-400">{lesson.duration}</p>
+                                      <p className="text-xs font-medium text-gray-400">{lesson.duration || "10:00"}</p>
                                     </div>
                                   </div>
-                                  <Lock className="h-4 w-4 text-gray-300" />
+                                  {lesson.isFree ? (
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-green-600 bg-green-50 px-2 py-1 rounded">Free</span>
+                                  ) : (
+                                    <Lock className="h-4 w-4 text-gray-300" />
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -173,12 +223,21 @@ export default function CourseDetails() {
                     <span className="ml-auto rounded-lg bg-red-50 px-2 py-1 text-xs font-bold text-red-600">40% OFF</span>
                   </div>
                   
-                  <Link 
-                    to={`/course/${course.id}/pay`}
-                    className="mb-4 block w-full rounded-2xl bg-indigo-600 py-4 text-center text-lg font-bold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 hover:shadow-indigo-300"
-                  >
-                    Enroll Now
-                  </Link>
+                  {isEnrolled ? (
+                    <Link 
+                      to={`/course/${course.id}/learn`}
+                      className="mb-4 block w-full rounded-2xl bg-green-600 py-4 text-center text-lg font-bold text-white shadow-lg shadow-green-200 transition-all hover:bg-green-700 hover:shadow-green-300"
+                    >
+                      Go to Course
+                    </Link>
+                  ) : (
+                    <Link 
+                      to={`/course/${course.id}/pay`}
+                      className="mb-4 block w-full rounded-2xl bg-indigo-600 py-4 text-center text-lg font-bold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 hover:shadow-indigo-300"
+                    >
+                      Enroll Now
+                    </Link>
+                  )}
                   <p className="mb-8 text-center text-xs font-medium text-gray-500">
                     30-Day Money-Back Guarantee
                   </p>

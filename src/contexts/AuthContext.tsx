@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 
 interface AuthContextType {
@@ -24,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [roleFetched, setRoleFetched] = useState(false);
 
   useEffect(() => {
     // Generate or retrieve a unique device ID
@@ -35,43 +36,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDeviceId(currentDeviceId);
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        // Listen to user document for role and device check
-        const userDocRef = doc(db, "users", user.uid);
-        const unsubDoc = onSnapshot(userDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            setRole(data.role);
-            
-            // 1 Student with 1 Device Check
-            if (data.lastDeviceId && data.lastDeviceId !== currentDeviceId) {
-              alert("You have been logged out because your account is being used on another device.");
-              auth.signOut();
+      try {
+        setUser(user);
+        if (user) {
+          // Listen to user document for role and device check
+          const userDocRef = doc(db, "users", user.uid);
+          const unsubDoc = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              // Force admin role for the master email
+              const currentRole = user.email === "1zero1rana@gmail.com" ? "admin" : data.role;
+              setRole(currentRole);
+              setRoleFetched(true);
+              
+              // 1 Student with 1 Device Check (Skip for admins)
+              if (currentRole !== "admin" && data.lastDeviceId && data.lastDeviceId !== currentDeviceId) {
+                // Instead of alert, we just sign out
+                console.warn("Session invalidated: Account used on another device.");
+                auth.signOut();
+              }
+            } else if (user.email === "1zero1rana@gmail.com") {
+              setRole("admin");
+              setRoleFetched(true);
+            } else {
+              setRoleFetched(true);
             }
-          }
-        });
+          });
 
-        // Update lastDeviceId on login
-        try {
-          await updateDoc(userDocRef, { lastDeviceId: currentDeviceId });
-        } catch (error) {
-          console.error("Error updating device ID:", error);
+          // Update lastDeviceId on login
+          await setDoc(userDocRef, { lastDeviceId: currentDeviceId }, { merge: true });
+          
+          // Note: unsubDoc is not returned from here, it's handled by the component unmount or next auth change
+        } else {
+          setRole(null);
+          setRoleFetched(true);
         }
-
-        return () => unsubDoc();
-      } else {
-        setRole(null);
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, role, deviceId }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ user, loading: loading || (user !== null && !roleFetched), role, deviceId }}>
+      {(loading || (user !== null && !roleFetched)) ? (
+        <div className="flex h-screen w-full items-center justify-center bg-white">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+            <p className="text-sm font-bold text-gray-500 animate-pulse">Initializing ICT Masterclass...</p>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 };

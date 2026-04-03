@@ -6,6 +6,7 @@ import { HSC_ICT_COURSES } from "../constants";
 import { motion } from "motion/react";
 import { ArrowRight, BookOpen, GraduationCap, Laptop, Code, Database, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 const categories = [
   { name: "Academic", icon: GraduationCap, color: "text-blue-600 bg-blue-50" },
@@ -17,6 +18,7 @@ const categories = [
 ];
 
 export default function Home() {
+  const { user } = useAuth();
   return (
     <main className="bg-white">
       <Hero />
@@ -98,10 +100,10 @@ export default function Home() {
             </p>
             <div className="mt-12 flex flex-wrap justify-center gap-6">
               <Link
-                to="/register"
+                to={user ? "/dashboard" : "/register"}
                 className="rounded-full bg-white px-10 py-5 text-lg font-bold text-indigo-600 shadow-xl transition-all hover:bg-indigo-50 hover:scale-105"
               >
-                Join Now for Free
+                {user ? "Go to Dashboard" : "Join Now for Free"}
               </Link>
               <Link
                 to="/courses"

@@ -1,13 +1,15 @@
 import { motion } from "motion/react";
 import { useParams, useNavigate } from "react-router-dom";
-import { HSC_ICT_COURSES } from "../constants";
 import { Smartphone, CheckCircle2, AlertCircle, ArrowRight, Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { doc, getDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db, auth } from "../firebase";
 
 export default function Payment() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const course = HSC_ICT_COURSES.find((c) => c.id === id);
+  const [course, setCourse] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [transactionId, setTransactionId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -15,21 +17,63 @@ export default function Payment() {
 
   const bkashNumber = "01700000000"; // Placeholder
 
+  useEffect(() => {
+    const fetchCourse = async () => {
+      if (!id) return;
+      try {
+        const docRef = doc(db, "courses", id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setCourse({ id: docSnap.id, ...docSnap.data() });
+        }
+      } catch (error) {
+        console.error("Error fetching course for payment:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourse();
+  }, [id]);
+
   const handleCopy = () => {
     navigator.clipboard.writeText(bkashNumber);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth.currentUser || !course) return;
+
     setIsSubmitting(true);
-    // Simulate API call to save payment record
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await addDoc(collection(db, "payments"), {
+        userId: auth.currentUser.uid,
+        userEmail: auth.currentUser.email,
+        courseId: course.id,
+        courseTitle: course.title,
+        amount: course.price,
+        transactionId: transactionId,
+        status: "pending",
+        createdAt: serverTimestamp(),
+      });
       setIsSuccess(true);
-    }, 1500);
+    } catch (error) {
+      console.error("Error submitting payment:", error);
+      alert("Failed to submit payment. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   if (!course) return <div className="py-24 text-center">Course not found</div>;
 

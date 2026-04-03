@@ -7,7 +7,9 @@ interface CourseCardProps {
   course: Course;
 }
 
-export default function CourseCard({ course }: CourseCardProps) {
+export default function CourseCard({ course }: { course: any }) {
+  const lessonsCount = course.chapters?.reduce((acc: number, ch: any) => acc + (ch.lessons?.length || 0), 0) || 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -30,7 +32,7 @@ export default function CourseCard({ course }: CourseCardProps) {
 
       <div className="flex flex-1 flex-col p-6">
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">{course.instructor}</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">Redwan Master</span>
           <div className="flex items-center gap-1 text-yellow-500">
             <Star className="h-4 w-4 fill-current" />
             <span className="text-sm font-bold text-gray-900">4.9</span>
@@ -50,11 +52,11 @@ export default function CourseCard({ course }: CourseCardProps) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
                 <Users className="h-4 w-4 text-indigo-400" />
-                {course.stats.students.toLocaleString()} Students
+                {(course.studentsCount || 0).toLocaleString()} Students
               </div>
               <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
                 <BookOpen className="h-4 w-4 text-indigo-400" />
-                {course.stats.lessons} Lessons
+                {lessonsCount} Lessons
               </div>
             </div>
           </div>
