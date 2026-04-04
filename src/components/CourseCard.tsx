@@ -32,7 +32,7 @@ export default function CourseCard({ course }: { course: any }) {
 
       <div className="flex flex-1 flex-col p-6">
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-widest text-primary">Redwan Master</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-primary">Rana SIr</span>
           <div className="flex items-center gap-1 text-yellow-500">
             <Star className="h-4 w-4 fill-current" />
             <span className="text-sm font-bold text-gray-900">4.9</span>
