@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import { ArrowRight, BookOpen, GraduationCap, Laptop, Code, Database, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 
 const categories = [
   { name: "Academic", icon: GraduationCap, color: "text-blue-600 bg-blue-50" },
@@ -19,6 +20,7 @@ const categories = [
 
 export default function Home() {
   const { user } = useAuth();
+  const { settings } = useSettings();
   return (
     <main className="bg-white">
       <Hero />
@@ -92,10 +94,10 @@ export default function Home() {
             <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-indigo-400/20 blur-3xl" />
 
             <h2 className="mx-auto max-w-3xl text-4xl font-black tracking-tight sm:text-6xl leading-[1.1]">
-              Ready to Ace Your HSC ICT Exam?
+              Ready to Ace Your {settings.siteName.split(' ').slice(-1)} Exam?
             </h2>
             <p className="mx-auto mt-8 max-w-2xl text-lg text-indigo-100">
-              Join thousands of students who are already learning with Redwan's Method. 
+              Join thousands of students who are already learning with {settings.siteName}. 
               Get lifetime access to high-quality content and expert support.
             </p>
             <div className="mt-12 flex flex-wrap justify-center gap-6">

@@ -4,10 +4,13 @@ import { Smartphone, CheckCircle2, AlertCircle, ArrowRight, Copy, Check } from "
 import { useState, useEffect } from "react";
 import { doc, getDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 
 export default function Payment() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { settings } = useSettings();
   const [course, setCourse] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [transactionId, setTransactionId] = useState("");
@@ -15,7 +18,7 @@ export default function Payment() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const bkashNumber = "01700000000"; // Placeholder
+  const bkashNumber = settings.bkashNumber;
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -125,7 +128,7 @@ export default function Payment() {
               </div>
               
               <div className="space-y-4">
-                <p className="text-sm text-gray-600">Send <strong>৳{course.price}</strong> to the bKash Personal number below:</p>
+                <p className="text-sm text-gray-600">{settings.paymentInstructions.replace('৳{course.price}', `৳${course.price}`)}</p>
                 <div className="flex items-center justify-between rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-200">
                   <span className="text-lg font-black text-gray-900">{bkashNumber}</span>
                   <button 

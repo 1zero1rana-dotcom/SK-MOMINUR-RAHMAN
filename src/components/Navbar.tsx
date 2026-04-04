@@ -3,12 +3,14 @@ import { BookOpen, LogIn, Menu, X, ShieldCheck, User, LogOut, ChevronDown } from
 import { useState, useRef, useEffect } from "react";
 import { cn } from "../lib/utils";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { auth } from "../firebase";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, role, loading } = useAuth();
+  const { settings } = useSettings();
   const navigate = useNavigate();
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +45,7 @@ export default function Navbar() {
             <BookOpen className="h-6 w-6" />
           </div>
           <span className="text-xl font-bold tracking-tight text-gray-900">
-            ICT <span className="text-indigo-600">Masterclass</span>
+            {settings.siteName.split(' ')[0]} <span className="text-indigo-600">{settings.siteName.split(' ').slice(1).join(' ')}</span>
           </span>
         </Link>
 

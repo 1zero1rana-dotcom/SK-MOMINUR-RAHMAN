@@ -2,9 +2,11 @@ import { motion } from "motion/react";
 import { Play, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 
 export default function Hero() {
   const { user } = useAuth();
+  const { settings } = useSettings();
   return (
     <section className="relative overflow-hidden bg-white pt-16 pb-24 lg:pt-32 lg:pb-40">
       {/* Background decoration */}
@@ -26,12 +28,11 @@ export default function Hero() {
             </div>
             
             <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 sm:text-6xl lg:text-7xl leading-[1.1]">
-              Master <span className="text-indigo-600">HSC ICT</span> with Confidence.
+              {settings.heroTitle.split(' ').slice(0, -2).join(' ')} <span className="text-indigo-600">{settings.heroTitle.split(' ').slice(-2).join(' ')}</span>
             </h1>
             
             <p className="max-w-xl text-lg leading-relaxed text-gray-600">
-              Join over 500,000 students across Bangladesh. Learn from the best educators, 
-              practice with interactive quizzes, and ace your exams with Redwan's Method.
+              {settings.heroSubtitle}
             </p>
 
             <div className="flex flex-wrap gap-4">

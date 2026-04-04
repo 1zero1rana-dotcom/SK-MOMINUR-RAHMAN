@@ -18,7 +18,15 @@ import {
   ChevronUp,
   ArrowLeft,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  LogOut,
+  Play,
+  Globe,
+  Facebook,
+  Youtube,
+  Mail,
+  Phone,
+  MapPin
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "../lib/utils";
@@ -49,9 +57,12 @@ const adminNavItems = [
   { name: "Settings", icon: Settings, id: "settings" },
 ];
 
+import { useSettings } from "../contexts/SettingsContext";
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const { user, loading, role } = useAuth();
+  const { settings, updateSettings } = useSettings();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -136,8 +147,167 @@ export default function AdminDashboard() {
           {activeTab === "payments" && <AdminPayments />}
           {activeTab === "courses" && <AdminCourses />}
           {activeTab === "students" && <AdminStudents />}
+          {activeTab === "settings" && <AdminSettings settings={settings} onUpdate={updateSettings} />}
         </div>
       </main>
+    </div>
+  );
+}
+
+function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: any) => Promise<void> }) {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    const formData = new FormData(e.target as HTMLFormElement);
+    const newSettings = {
+      siteName: formData.get("siteName") as string,
+      siteDescription: formData.get("siteDescription") as string,
+      heroTitle: formData.get("heroTitle") as string,
+      heroSubtitle: formData.get("heroSubtitle") as string,
+      bkashNumber: formData.get("bkashNumber") as string,
+      paymentInstructions: formData.get("paymentInstructions") as string,
+      footerText: formData.get("footerText") as string,
+      contactEmail: formData.get("contactEmail") as string,
+      contactPhone: formData.get("contactPhone") as string,
+      facebookUrl: formData.get("facebookUrl") as string,
+      youtubeUrl: formData.get("youtubeUrl") as string,
+      language: formData.get("language") as string,
+    };
+
+    try {
+      await onUpdate(newSettings);
+      alert("Settings updated successfully!");
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      alert("Failed to update settings.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-12">
+      <header>
+        <h1 className="text-3xl font-black tracking-tight text-gray-900">Site Settings</h1>
+        <p className="mt-2 text-lg text-gray-600">Manage global site content and configuration.</p>
+      </header>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          {/* General Settings */}
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Settings className="h-5 w-5 text-indigo-600" />
+              General Identity
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Site Name</label>
+                <input name="siteName" defaultValue={settings.siteName} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Site Description</label>
+                <textarea name="siteDescription" defaultValue={settings.siteDescription} rows={2} className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Default Language</label>
+                <select name="language" defaultValue={settings.language} className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200">
+                  <option value="bn">Bengali</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Hero Section */}
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <LayoutDashboard className="h-5 w-5 text-indigo-600" />
+              Hero Section
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Hero Title</label>
+                <input name="heroTitle" defaultValue={settings.heroTitle} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Hero Subtitle</label>
+                <textarea name="heroSubtitle" defaultValue={settings.heroSubtitle} rows={3} className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Settings */}
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-indigo-600" />
+              Payment Details
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700">bKash Number</label>
+                <input name="bkashNumber" defaultValue={settings.bkashNumber} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Payment Instructions</label>
+                <textarea name="paymentInstructions" defaultValue={settings.paymentInstructions} rows={3} className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+            </div>
+          </div>
+
+          {/* Contact & Social */}
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Users className="h-5 w-5 text-indigo-600" />
+              Contact & Social
+            </h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Email</label>
+                  <input name="contactEmail" defaultValue={settings.contactEmail} type="email" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Phone</label>
+                  <input name="contactPhone" defaultValue={settings.contactPhone} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Facebook URL</label>
+                <input name="facebookUrl" defaultValue={settings.facebookUrl} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">YouTube URL</label>
+                <input name="youtubeUrl" defaultValue={settings.youtubeUrl} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6 lg:col-span-2">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-indigo-600" />
+              Footer Content
+            </h2>
+            <div>
+              <label className="block text-sm font-bold text-gray-700">Footer Copyright Text</label>
+              <input name="footerText" defaultValue={settings.footerText} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="rounded-2xl bg-indigo-600 px-12 py-4 font-bold text-white shadow-xl shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 transition-all hover:scale-105"
+          >
+            {isSaving ? "Saving Settings..." : "Save All Settings"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
