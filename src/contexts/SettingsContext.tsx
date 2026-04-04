@@ -26,7 +26,16 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
       if (docSnap.exists()) {
-        setSettings({ ...DEFAULT_SETTINGS, ...docSnap.data() } as SiteSettings);
+        const data = docSnap.data() as SiteSettings;
+        setSettings({ ...DEFAULT_SETTINGS, ...data } as SiteSettings);
+        
+        // Update CSS variables for theme colors
+        if (data.primaryColor) {
+          document.documentElement.style.setProperty('--primary-color', data.primaryColor);
+        }
+        if (data.secondaryColor) {
+          document.documentElement.style.setProperty('--secondary-color', data.secondaryColor);
+        }
       } else {
         // Initialize settings if they don't exist
         setDoc(settingsDocRef, DEFAULT_SETTINGS);

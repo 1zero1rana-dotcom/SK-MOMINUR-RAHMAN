@@ -41,19 +41,31 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
-            <BookOpen className="h-6 w-6" />
-          </div>
+          {settings.logoUrl ? (
+            <img src={settings.logoUrl} alt={settings.siteName} className="h-10 w-auto object-contain" />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20">
+              <BookOpen className="h-6 w-6" />
+            </div>
+          )}
           <span className="text-xl font-bold tracking-tight text-gray-900">
-            {settings.siteName.split(' ')[0]} <span className="text-indigo-600">{settings.siteName.split(' ').slice(1).join(' ')}</span>
+            {settings.siteName.split(' ')[0]} <span className="text-primary">{settings.siteName.split(' ').slice(1).join(' ')}</span>
           </span>
         </Link>
 
         {/* Desktop Nav */}
         <div className="hidden md:flex md:items-center md:gap-8">
-          <Link to="/courses" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">Courses</Link>
-          <Link to="/about" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">About</Link>
-          <Link to="/community" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">Community</Link>
+          {settings.headerLinks?.length > 0 ? (
+            settings.headerLinks.map((link: any, i: number) => (
+              <Link key={i} to={link.path} className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">{link.name}</Link>
+            ))
+          ) : (
+            <>
+              <Link to="/courses" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">Courses</Link>
+              <Link to="/about" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">About</Link>
+              <Link to="/community" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">Community</Link>
+            </>
+          )}
           <div className="h-4 w-[1px] bg-gray-200" />
           
           {user ? (
@@ -82,7 +94,7 @@ export default function Navbar() {
                     <Link
                       to="/admin"
                       onClick={() => setIsProfileOpen(false)}
-                      className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary/5 transition-colors"
                     >
                       <ShieldCheck className="h-5 w-5" />
                       Admin Panel
@@ -110,10 +122,10 @@ export default function Navbar() {
             </div>
           ) : (
             <>
-              <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">Login</Link>
+              <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">Login</Link>
               <Link 
                 to="/register" 
-                className="rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-indigo-700 transition-all hover:shadow-indigo-200"
+                className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-primary/90 transition-all hover:shadow-primary/20"
               >
                 Join Now
               </Link>
@@ -135,17 +147,25 @@ export default function Navbar() {
       {/* Mobile Nav */}
       <div className={cn("md:hidden", isOpen ? "block" : "hidden")}>
         <div className="space-y-1 px-2 pb-3 pt-2 sm:px-3 border-t border-gray-100 bg-white">
-          <Link to="/courses" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">Courses</Link>
-          <Link to="/about" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">About</Link>
-          <Link to="/community" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">Community</Link>
+          {settings.headerLinks?.length > 0 ? (
+            settings.headerLinks.map((link: any, i: number) => (
+              <Link key={i} to={link.path} onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-primary">{link.name}</Link>
+            ))
+          ) : (
+            <>
+              <Link to="/courses" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-primary">Courses</Link>
+              <Link to="/about" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-primary">About</Link>
+              <Link to="/community" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-primary">Community</Link>
+            </>
+          )}
           
           {user ? (
             <>
               <div className="h-[1px] bg-gray-100 my-2" />
               {role === "admin" && (
-                <Link to="/admin" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-bold text-indigo-600 hover:bg-indigo-50">Admin Panel</Link>
+                <Link to="/admin" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-bold text-primary hover:bg-primary/5">Admin Panel</Link>
               )}
-              <Link to="/dashboard" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-bold text-indigo-600 hover:bg-indigo-50">My Dashboard</Link>
+              <Link to="/dashboard" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-bold text-primary hover:bg-primary/5">My Dashboard</Link>
               <button 
                 onClick={() => { handleSignOut(); setIsOpen(false); }}
                 className="block w-full text-left rounded-md px-3 py-2 text-base font-bold text-red-600 hover:bg-red-50"
@@ -155,8 +175,8 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link to="/login" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600">Login</Link>
-              <Link to="/register" onClick={() => setIsOpen(false)} className="mt-4 block w-full rounded-full bg-indigo-600 px-3 py-3 text-center text-base font-semibold text-white shadow-md">Join Now</Link>
+              <Link to="/login" onClick={() => setIsOpen(false)} className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-primary">Login</Link>
+              <Link to="/register" onClick={() => setIsOpen(false)} className="mt-4 block w-full rounded-full bg-primary px-3 py-3 text-center text-base font-semibold text-white shadow-md">Join Now</Link>
             </>
           )}
         </div>

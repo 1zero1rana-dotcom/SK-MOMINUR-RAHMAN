@@ -26,7 +26,13 @@ import {
   Youtube,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Menu,
+  Save,
+  Image as ImageIcon,
+  Palette,
+  MoveUp,
+  MoveDown
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "../lib/utils";
@@ -44,7 +50,8 @@ import {
   setDoc,
   getDoc
 } from "firebase/firestore";
-import { db, auth } from "../firebase";
+import { db, auth, storage } from "../firebase";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../contexts/AuthContext";
@@ -156,11 +163,58 @@ export default function AdminDashboard() {
 
 function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: any) => Promise<void> }) {
   const [isSaving, setIsSaving] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [headerLinks, setHeaderLinks] = useState(settings.headerLinks || []);
+  const [primaryColor, setPrimaryColor] = useState(settings.primaryColor || "#4f46e5");
+  const [secondaryColor, setSecondaryColor] = useState(settings.secondaryColor || "#6366f1");
+
+  useEffect(() => {
+    setHeaderLinks(settings.headerLinks || []);
+    setPrimaryColor(settings.primaryColor || "#4f46e5");
+    setSecondaryColor(settings.secondaryColor || "#6366f1");
+  }, [settings]);
+
+  const handleAddLink = () => {
+    setHeaderLinks([...headerLinks, { name: "New Link", path: "/" }]);
+  };
+
+  const handleRemoveLink = (index: number) => {
+    setHeaderLinks(headerLinks.filter((_: any, i: number) => i !== index));
+  };
+
+  const handleLinkChange = (index: number, field: string, value: string) => {
+    const newLinks = [...headerLinks];
+    newLinks[index][field] = value;
+    setHeaderLinks(newLinks);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     const formData = new FormData(e.target as HTMLFormElement);
+    
+    let logoUrl = settings.logoUrl;
+
+    if (logoFile) {
+      const storageRef = ref(storage, `site/logo_${Date.now()}`);
+      const uploadTask = uploadBytesResumable(storageRef, logoFile);
+      
+      await new Promise((resolve, reject) => {
+        uploadTask.on('state_changed', 
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(progress);
+          }, 
+          (error) => reject(error), 
+          async () => {
+            logoUrl = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(logoUrl);
+          }
+        );
+      });
+    }
+
     const newSettings = {
       siteName: formData.get("siteName") as string,
       siteDescription: formData.get("siteDescription") as string,
@@ -173,25 +227,33 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
       contactPhone: formData.get("contactPhone") as string,
       facebookUrl: formData.get("facebookUrl") as string,
       youtubeUrl: formData.get("youtubeUrl") as string,
+      primaryColor,
+      secondaryColor,
+      logoUrl,
+      headerLinks,
       language: formData.get("language") as string,
     };
+
+    console.log("Saving settings:", newSettings);
 
     try {
       await onUpdate(newSettings);
       alert("Settings updated successfully!");
+      setLogoFile(null);
+      setUploadProgress(0);
     } catch (error) {
       console.error("Error updating settings:", error);
-      alert("Failed to update settings.");
+      alert("Failed to update settings. Please check console for details.");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 pb-24">
       <header>
-        <h1 className="text-3xl font-black tracking-tight text-gray-900">Site Settings</h1>
-        <p className="mt-2 text-lg text-gray-600">Manage global site content and configuration.</p>
+        <h1 className="text-3xl font-black tracking-tight text-gray-900">Site Customization</h1>
+        <p className="mt-2 text-lg text-gray-600">Manage logo, menu, colors, and global content.</p>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -211,13 +273,101 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
                 <label className="block text-sm font-bold text-gray-700">Site Description</label>
                 <textarea name="siteDescription" defaultValue={settings.siteDescription} rows={2} className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700">Default Language</label>
-                <select name="language" defaultValue={settings.language} className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200">
-                  <option value="bn">Bengali</option>
-                  <option value="en">English</option>
-                </select>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Primary Color</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input 
+                      name="primaryColor" 
+                      value={primaryColor} 
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      type="color" 
+                      className="h-10 w-10 rounded-lg border-0 bg-transparent p-0 cursor-pointer" 
+                    />
+                    <input 
+                      type="text" 
+                      value={primaryColor} 
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200" 
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Secondary Color</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input 
+                      name="secondaryColor" 
+                      value={secondaryColor} 
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      type="color" 
+                      className="h-10 w-10 rounded-lg border-0 bg-transparent p-0 cursor-pointer" 
+                    />
+                    <input 
+                      type="text" 
+                      value={secondaryColor} 
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200" 
+                    />
+                  </div>
+                </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Logo</label>
+                <div className="mt-2 flex items-center gap-4">
+                  {settings.logoUrl && (
+                    <img src={settings.logoUrl} alt="Logo" className="h-12 w-12 rounded-lg object-contain ring-1 ring-gray-200 p-1" />
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                  />
+                </div>
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div className="mt-2 h-1 w-full rounded-full bg-gray-100">
+                    <div className="h-1 rounded-full bg-indigo-600 transition-all" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Menu Management */}
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Menu className="h-5 w-5 text-indigo-600" />
+                Navigation Menu
+              </h2>
+              <button type="button" onClick={handleAddLink} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                <Plus className="h-3 w-3" /> Add Link
+              </button>
+            </div>
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+              {headerLinks.map((link: any, index: number) => (
+                <div key={index} className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 ring-1 ring-gray-200">
+                  <input 
+                    type="text" 
+                    value={link.name} 
+                    onChange={(e) => handleLinkChange(index, "name", e.target.value)}
+                    className="flex-1 bg-transparent text-sm font-bold text-gray-900 focus:outline-none"
+                    placeholder="Link Name"
+                  />
+                  <input 
+                    type="text" 
+                    value={link.path} 
+                    onChange={(e) => handleLinkChange(index, "path", e.target.value)}
+                    className="flex-1 bg-transparent text-xs text-gray-500 focus:outline-none"
+                    placeholder="/path"
+                  />
+                  <button type="button" onClick={() => handleRemoveLink(index)} className="text-gray-400 hover:text-red-600">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -304,7 +454,7 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
             disabled={isSaving}
             className="rounded-2xl bg-indigo-600 px-12 py-4 font-bold text-white shadow-xl shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 transition-all hover:scale-105"
           >
-            {isSaving ? "Saving Settings..." : "Save All Settings"}
+            {isSaving ? `Saving... ${Math.round(uploadProgress)}%` : "Save All Settings"}
           </button>
         </div>
       </form>
@@ -800,22 +950,36 @@ function ManageVideos({ course, onBack }: { course: any; onBack: () => void }) {
     }));
   };
 
+  const handleLessonUpdate = (chapterId: string, lessonId: string, updates: any) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id === chapterId) {
+        return {
+          ...ch,
+          lessons: ch.lessons.map((l: any) => l.id === lessonId ? { ...l, ...updates } : l)
+        };
+      }
+      return ch;
+    }));
+  };
+
   const handleSaveChanges = async () => {
     setIsSaving(true);
     try {
       await updateDoc(doc(db, "courses", course.id), {
         chapters: chapters
       });
+      alert("Course content updated successfully!");
       onBack();
     } catch (error) {
       console.error("Error saving video management changes:", error);
+      alert("Failed to save changes.");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-24">
       <header className="flex items-center gap-4">
         <button 
           onClick={onBack}
@@ -879,68 +1043,22 @@ function ManageVideos({ course, onBack }: { course: any; onBack: () => void }) {
               {expandedChapter === chapter.id && (
                 <div className="p-4 space-y-4">
                   {chapter.lessons.map((lesson: any) => (
-                    <div key={lesson.id} className="flex flex-col gap-4 rounded-xl bg-white p-4 ring-1 ring-gray-100 md:flex-row md:items-center">
-                      <div className="flex flex-1 items-center gap-3">
-                        <Video className="h-5 w-5 text-indigo-600" />
-                        <input 
-                          type="text" 
-                          value={lesson.title} 
-                          onChange={(e) => {
-                            setChapters(chapters.map(ch => ch.id === chapter.id ? {
-                              ...ch,
-                              lessons: ch.lessons.map((l: any) => l.id === lesson.id ? { ...l, title: e.target.value } : l)
-                            } : ch));
-                          }}
-                          className="flex-1 bg-transparent text-sm font-medium text-gray-900 focus:outline-none"
-                          placeholder="Lesson Title"
-                        />
-                      </div>
-                      <div className="flex flex-1 items-center gap-3">
-                        <input 
-                          type="text" 
-                          value={lesson.videoUrl} 
-                          onChange={(e) => {
-                            setChapters(chapters.map(ch => ch.id === chapter.id ? {
-                              ...ch,
-                              lessons: ch.lessons.map((l: any) => l.id === lesson.id ? { ...l, videoUrl: e.target.value } : l)
-                            } : ch));
-                          }}
-                          className="flex-1 bg-transparent text-xs text-gray-500 focus:outline-none"
-                          placeholder="Video URL (YouTube/Vimeo)"
-                        />
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="checkbox" 
-                            checked={lesson.isFree}
-                            onChange={(e) => {
-                              setChapters(chapters.map(ch => ch.id === chapter.id ? {
-                                ...ch,
-                                lessons: ch.lessons.map((l: any) => l.id === lesson.id ? { ...l, isFree: e.target.checked } : l)
-                              } : ch));
-                            }}
-                            className="h-4 w-4 rounded border-gray-300 text-indigo-600"
-                          />
-                          <span className="text-xs font-medium text-gray-500">Free</span>
-                        </div>
-                        <button 
-                          onClick={() => {
-                            setChapters(chapters.map(ch => ch.id === chapter.id ? {
-                              ...ch,
-                              lessons: ch.lessons.filter((l: any) => l.id !== lesson.id)
-                            } : ch));
-                          }}
-                          className="text-gray-400 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
+                    <LessonItem 
+                      key={lesson.id} 
+                      lesson={lesson} 
+                      courseId={course.id}
+                      onUpdate={(updates) => handleLessonUpdate(chapter.id, lesson.id, updates)}
+                      onRemove={() => {
+                        setChapters(chapters.map(ch => ch.id === chapter.id ? {
+                          ...ch,
+                          lessons: ch.lessons.filter((l: any) => l.id !== lesson.id)
+                        } : ch));
+                      }}
+                    />
                   ))}
                   <button 
                     onClick={() => addLesson(chapter.id)}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm font-bold text-gray-400 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-100 py-4 text-sm font-bold text-gray-400 hover:border-indigo-100 hover:bg-indigo-50 hover:text-indigo-600"
                   >
                     <Plus className="h-4 w-4" />
                     Add Lesson
@@ -951,22 +1069,114 @@ function ManageVideos({ course, onBack }: { course: any; onBack: () => void }) {
           ))}
         </div>
 
-        <div className="mt-12 flex justify-end gap-4">
-          <button 
-            onClick={onBack}
-            className="rounded-xl px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
+        <div className="mt-12 flex justify-end">
           <button 
             onClick={handleSaveChanges}
             disabled={isSaving}
-            className="rounded-xl bg-indigo-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-2xl bg-indigo-600 px-12 py-4 font-bold text-white shadow-xl shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50"
           >
-            {isSaving ? "Saving..." : "Save Changes"}
+            {isSaving ? "Saving Changes..." : "Save All Changes"}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; courseId: string; onUpdate: (u: any) => void; onRemove: () => void }) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const storageRef = ref(storage, `courses/${courseId}/videos/${Date.now()}_${file.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on('state_changed', 
+      (snapshot) => {
+        const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setProgress(p);
+      },
+      (error) => {
+        console.error("Upload error:", error);
+        setIsUploading(false);
+        alert("Upload failed.");
+      },
+      async () => {
+        const url = await getDownloadURL(uploadTask.snapshot.ref);
+        onUpdate({ videoUrl: url });
+        setIsUploading(false);
+        setProgress(0);
+      }
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-4 rounded-xl bg-white p-4 ring-1 ring-gray-100 lg:flex-row lg:items-center relative">
+      <div className="flex flex-1 items-center gap-3">
+        <Play className="h-5 w-5 text-indigo-600" />
+        <input 
+          type="text" 
+          value={lesson.title} 
+          onChange={(e) => onUpdate({ title: e.target.value })}
+          className="flex-1 bg-transparent text-sm font-bold text-gray-900 focus:outline-none"
+          placeholder="Lesson Title"
+        />
+      </div>
+      
+      <div className="flex flex-1 items-center gap-3">
+        <input 
+          type="text" 
+          value={lesson.videoUrl} 
+          onChange={(e) => onUpdate({ videoUrl: e.target.value })}
+          className="flex-1 bg-transparent text-xs text-gray-500 focus:outline-none"
+          placeholder="Video URL or Upload"
+        />
+        <div className="relative">
+          <input 
+            type="file" 
+            accept="video/*" 
+            onChange={handleFileUpload}
+            className="absolute inset-0 opacity-0 cursor-pointer"
+            disabled={isUploading}
+          />
+          <button className="rounded-lg bg-indigo-50 p-2 text-indigo-600 hover:bg-indigo-100">
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <input 
+            type="checkbox" 
+            checked={lesson.isFree} 
+            onChange={(e) => onUpdate({ isFree: e.target.checked })}
+            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+          />
+          <span className="text-xs font-bold text-gray-500">Free</span>
+        </div>
+        <button onClick={onRemove} className="text-gray-400 hover:text-red-600">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      {isUploading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/80 backdrop-blur-sm">
+          <div className="w-48 space-y-2">
+            <div className="flex justify-between text-[10px] font-bold text-indigo-600">
+              <span>Uploading Video...</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-gray-100">
+              <div className="h-1 rounded-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,21 +12,25 @@ export default function Footer() {
           {/* Brand */}
           <div className="space-y-6">
             <Link to="/" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
-                <BookOpen className="h-6 w-6" />
-              </div>
+              {settings.logoUrl ? (
+                <img src={settings.logoUrl} alt={settings.siteName} className="h-10 w-auto object-contain" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20">
+                  <BookOpen className="h-6 w-6" />
+                </div>
+              )}
               <span className="text-xl font-bold tracking-tight text-gray-900">
-                {settings.siteName.split(' ')[0]} <span className="text-indigo-600">{settings.siteName.split(' ').slice(1).join(' ')}</span>
+                {settings.siteName.split(' ')[0]} <span className="text-primary">{settings.siteName.split(' ').slice(1).join(' ')}</span>
               </span>
             </Link>
             <p className="text-sm leading-relaxed text-gray-500">
               {settings.siteDescription}
             </p>
             <div className="flex gap-4">
-              <a href={settings.facebookUrl} target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600">
+              <a href={settings.facebookUrl} target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-primary/5 hover:text-primary">
                 <Facebook className="h-5 w-5" />
               </a>
-              <a href={settings.youtubeUrl} target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600">
+              <a href={settings.youtubeUrl} target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-primary/5 hover:text-primary">
                 <Youtube className="h-5 w-5" />
               </a>
             </div>
@@ -36,9 +40,9 @@ export default function Footer() {
           <div>
             <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900">Quick Links</h3>
             <ul className="mt-6 space-y-4">
-              {settings.headerLinks.map((link) => (
+              {settings.headerLinks?.map((link) => (
                 <li key={link.name}>
-                  <Link to={link.path} className="text-sm font-medium text-gray-500 transition-colors hover:text-indigo-600">
+                  <Link to={link.path} className="text-sm font-medium text-gray-500 transition-colors hover:text-primary">
                     {link.name}
                   </Link>
                 </li>
@@ -50,9 +54,9 @@ export default function Footer() {
           <div>
             <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900">Support</h3>
             <ul className="mt-6 space-y-4">
-              {settings.footerLinks.map((link) => (
+              {settings.footerLinks?.map((link) => (
                 <li key={link.name}>
-                  <Link to={link.path} className="text-sm font-medium text-gray-500 transition-colors hover:text-indigo-600">
+                  <Link to={link.path} className="text-sm font-medium text-gray-500 transition-colors hover:text-primary">
                     {link.name}
                   </Link>
                 </li>
@@ -65,15 +69,15 @@ export default function Footer() {
             <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900">Contact Us</h3>
             <ul className="mt-6 space-y-4">
               <li className="flex items-center gap-3 text-sm font-medium text-gray-500">
-                <Mail className="h-5 w-5 text-indigo-600" />
+                <Mail className="h-5 w-5 text-primary" />
                 {settings.contactEmail}
               </li>
               <li className="flex items-center gap-3 text-sm font-medium text-gray-500">
-                <Phone className="h-5 w-5 text-indigo-600" />
+                <Phone className="h-5 w-5 text-primary" />
                 {settings.contactPhone}
               </li>
               <li className="flex items-start gap-3 text-sm font-medium text-gray-500">
-                <MapPin className="h-5 w-5 text-indigo-600" />
+                <MapPin className="h-5 w-5 text-primary" />
                 Dhaka, Bangladesh
               </li>
             </ul>

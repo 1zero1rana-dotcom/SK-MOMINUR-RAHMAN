@@ -10,6 +10,9 @@ export interface SiteSettings {
   contactPhone: string;
   facebookUrl: string;
   youtubeUrl: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
   language: "en" | "bn";
   headerLinks: { name: string; path: string }[];
   footerLinks: { name: string; path: string }[];
@@ -27,6 +30,9 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   contactPhone: "+880 1XXX XXXXXX",
   facebookUrl: "https://facebook.com",
   youtubeUrl: "https://youtube.com",
+  logoUrl: "",
+  primaryColor: "#4f46e5", // indigo-600
+  secondaryColor: "#6366f1", // indigo-500
   language: "bn",
   headerLinks: [
     { name: "Courses", path: "/courses" },

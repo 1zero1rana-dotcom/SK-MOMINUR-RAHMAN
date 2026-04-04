@@ -30,7 +30,7 @@ export default function Home() {
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-16 text-center">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-indigo-600">Categories</h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-primary">Categories</h2>
             <p className="mt-4 text-4xl font-black tracking-tight text-gray-900 sm:text-5xl">
               Choose Your Learning Path
             </p>
@@ -61,14 +61,14 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-16 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-widest text-indigo-600">Our Courses</h2>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-primary">Our Courses</h2>
               <p className="mt-4 text-4xl font-black tracking-tight text-gray-900 sm:text-5xl">
                 Featured Online Batches
               </p>
             </div>
             <Link
               to="/courses"
-              className="group flex items-center gap-2 text-lg font-bold text-indigo-600 hover:text-indigo-700"
+              className="group flex items-center gap-2 text-lg font-bold text-primary hover:text-primary/80"
             >
               View All Courses
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -88,28 +88,28 @@ export default function Home() {
       {/* CTA Section */}
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden rounded-[40px] bg-indigo-600 px-8 py-16 text-center text-white shadow-2xl shadow-indigo-200 lg:px-16 lg:py-24">
+          <div className="relative overflow-hidden rounded-[40px] bg-primary px-8 py-16 text-center text-white shadow-2xl shadow-primary/20 lg:px-16 lg:py-24">
             <div className="absolute top-0 left-0 -z-10 h-full w-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),transparent)]" />
             <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-            <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-indigo-400/20 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-secondary/20 blur-3xl" />
 
             <h2 className="mx-auto max-w-3xl text-4xl font-black tracking-tight sm:text-6xl leading-[1.1]">
               Ready to Ace Your {settings.siteName.split(' ').slice(-1)} Exam?
             </h2>
-            <p className="mx-auto mt-8 max-w-2xl text-lg text-indigo-100">
+            <p className="mx-auto mt-8 max-w-2xl text-lg text-white/80">
               Join thousands of students who are already learning with {settings.siteName}. 
               Get lifetime access to high-quality content and expert support.
             </p>
             <div className="mt-12 flex flex-wrap justify-center gap-6">
               <Link
                 to={user ? "/dashboard" : "/register"}
-                className="rounded-full bg-white px-10 py-5 text-lg font-bold text-indigo-600 shadow-xl transition-all hover:bg-indigo-50 hover:scale-105"
+                className="rounded-full bg-white px-10 py-5 text-lg font-bold text-primary shadow-xl transition-all hover:bg-gray-50 hover:scale-105"
               >
                 {user ? "Go to Dashboard" : "Join Now for Free"}
               </Link>
               <Link
                 to="/courses"
-                className="rounded-full bg-indigo-500/30 px-10 py-5 text-lg font-bold text-white ring-1 ring-white/30 backdrop-blur-sm transition-all hover:bg-indigo-500/50"
+                className="rounded-full bg-white/10 px-10 py-5 text-lg font-bold text-white ring-1 ring-white/30 backdrop-blur-sm transition-all hover:bg-white/20"
               >
                 Explore Courses
               </Link>

@@ -24,7 +24,7 @@ export default function CourseCard({ course }: { course: any }) {
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
           referrerPolicy="no-referrer"
         />
-        <div className="absolute top-4 left-4 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
+        <div className="absolute top-4 left-4 rounded-full bg-primary px-3 py-1 text-xs font-bold text-white shadow-lg">
           Best Seller
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
@@ -32,14 +32,14 @@ export default function CourseCard({ course }: { course: any }) {
 
       <div className="flex flex-1 flex-col p-6">
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">Redwan Master</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-primary">Redwan Master</span>
           <div className="flex items-center gap-1 text-yellow-500">
             <Star className="h-4 w-4 fill-current" />
             <span className="text-sm font-bold text-gray-900">4.9</span>
           </div>
         </div>
 
-        <h3 className="mb-3 text-xl font-black leading-tight text-gray-900 group-hover:text-indigo-600 transition-colors">
+        <h3 className="mb-3 text-xl font-black leading-tight text-gray-900 group-hover:text-primary transition-colors">
           {course.title}
         </h3>
         
@@ -64,11 +64,11 @@ export default function CourseCard({ course }: { course: any }) {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-xs font-bold text-gray-400 line-through">৳2,500</span>
-              <span className="text-2xl font-black text-indigo-600">৳{course.price}</span>
+              <span className="text-2xl font-black text-primary">৳{course.price}</span>
             </div>
             <Link
               to={`/course/${course.id}`}
-              className="inline-flex h-12 items-center justify-center rounded-2xl bg-indigo-50 px-6 text-sm font-bold text-indigo-600 transition-all hover:bg-indigo-600 hover:text-white"
+              className="inline-flex h-12 items-center justify-center rounded-2xl bg-primary/5 px-6 text-sm font-bold text-primary transition-all hover:bg-primary hover:text-white"
             >
               Enroll Now
               <ArrowRight className="ml-2 h-4 w-4" />
