@@ -32,7 +32,9 @@ import {
   Image as ImageIcon,
   Palette,
   MoveUp,
-  MoveDown
+  MoveDown,
+  Trophy,
+  Star
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "../lib/utils";
@@ -166,11 +168,17 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [headerLinks, setHeaderLinks] = useState(settings.headerLinks || []);
+  const [heroFeatures, setHeroFeatures] = useState(settings.heroFeatures || []);
+  const [stats, setStats] = useState(settings.stats || []);
+  const [testimonials, setTestimonials] = useState(settings.testimonials || []);
   const [primaryColor, setPrimaryColor] = useState(settings.primaryColor || "#4f46e5");
   const [secondaryColor, setSecondaryColor] = useState(settings.secondaryColor || "#6366f1");
 
   useEffect(() => {
     setHeaderLinks(settings.headerLinks || []);
+    setHeroFeatures(settings.heroFeatures || []);
+    setStats(settings.stats || []);
+    setTestimonials(settings.testimonials || []);
     setPrimaryColor(settings.primaryColor || "#4f46e5");
     setSecondaryColor(settings.secondaryColor || "#6366f1");
   }, [settings]);
@@ -187,6 +195,48 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
     const newLinks = [...headerLinks];
     newLinks[index][field] = value;
     setHeaderLinks(newLinks);
+  };
+
+  const handleAddFeature = () => {
+    setHeroFeatures([...heroFeatures, "New Feature"]);
+  };
+
+  const handleRemoveFeature = (index: number) => {
+    setHeroFeatures(heroFeatures.filter((_: any, i: number) => i !== index));
+  };
+
+  const handleFeatureChange = (index: number, value: string) => {
+    const newFeatures = [...heroFeatures];
+    newFeatures[index] = value;
+    setHeroFeatures(newFeatures);
+  };
+
+  const handleAddStat = () => {
+    setStats([...stats, { label: "New Stat", value: "0", icon: "Users", color: "bg-blue-50 text-blue-600" }]);
+  };
+
+  const handleRemoveStat = (index: number) => {
+    setStats(stats.filter((_: any, i: number) => i !== index));
+  };
+
+  const handleStatChange = (index: number, field: string, value: string) => {
+    const newStats = [...stats];
+    newStats[index][field] = value;
+    setStats(newStats);
+  };
+
+  const handleAddTestimonial = () => {
+    setTestimonials([...testimonials, { name: "Student Name", role: "Batch", content: "Feedback", avatar: "https://i.pravatar.cc/150", rating: 5 }]);
+  };
+
+  const handleRemoveTestimonial = (index: number) => {
+    setTestimonials(testimonials.filter((_: any, i: number) => i !== index));
+  };
+
+  const handleTestimonialChange = (index: number, field: string, value: any) => {
+    const newTestimonials = [...testimonials];
+    newTestimonials[index][field] = value;
+    setTestimonials(newTestimonials);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -220,6 +270,18 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
       siteDescription: formData.get("siteDescription") as string,
       heroTitle: formData.get("heroTitle") as string,
       heroSubtitle: formData.get("heroSubtitle") as string,
+      heroBadge: formData.get("heroBadge") as string,
+      statsLabel: formData.get("statsLabel") as string,
+      statsValue: formData.get("statsValue") as string,
+      categoriesTitle: formData.get("categoriesTitle") as string,
+      categoriesSubtitle: formData.get("categoriesSubtitle") as string,
+      coursesTitle: formData.get("coursesTitle") as string,
+      coursesSubtitle: formData.get("coursesSubtitle") as string,
+      ctaTitle: formData.get("ctaTitle") as string,
+      ctaSubtitle: formData.get("ctaSubtitle") as string,
+      testimonialsTitle: formData.get("testimonialsTitle") as string,
+      testimonialsSubtitle: formData.get("testimonialsSubtitle") as string,
+      testimonialsDescription: formData.get("testimonialsDescription") as string,
       bkashNumber: formData.get("bkashNumber") as string,
       paymentInstructions: formData.get("paymentInstructions") as string,
       footerText: formData.get("footerText") as string,
@@ -231,6 +293,9 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
       secondaryColor,
       logoUrl,
       headerLinks,
+      heroFeatures,
+      stats,
+      testimonials,
       language: formData.get("language") as string,
     };
 
@@ -379,6 +444,10 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
             </h2>
             <div className="space-y-4">
               <div>
+                <label className="block text-sm font-bold text-gray-700">Hero Badge</label>
+                <input name="heroBadge" defaultValue={settings.heroBadge} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+              <div>
                 <label className="block text-sm font-bold text-gray-700">Hero Title</label>
                 <input name="heroTitle" defaultValue={settings.heroTitle} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
               </div>
@@ -386,6 +455,212 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
                 <label className="block text-sm font-bold text-gray-700">Hero Subtitle</label>
                 <textarea name="heroSubtitle" defaultValue={settings.heroSubtitle} rows={3} className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
               </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-bold text-gray-700">Hero Features</label>
+                  <button type="button" onClick={handleAddFeature} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                    <Plus className="h-3 w-3" /> Add Feature
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {heroFeatures.map((feature: string, index: number) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input 
+                        type="text" 
+                        value={feature} 
+                        onChange={(e) => handleFeatureChange(index, e.target.value)}
+                        className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-sm ring-1 ring-gray-200" 
+                      />
+                      <button type="button" onClick={() => handleRemoveFeature(index)} className="text-gray-400 hover:text-red-600">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Stats Label</label>
+                  <input name="statsLabel" defaultValue={settings.statsLabel} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Stats Value</label>
+                  <input name="statsValue" defaultValue={settings.statsValue} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Home Page Sections */}
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <LayoutDashboard className="h-5 w-5 text-indigo-600" />
+              Home Page Sections
+            </h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Categories Title</label>
+                  <input name="categoriesTitle" defaultValue={settings.categoriesTitle} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Categories Subtitle</label>
+                  <input name="categoriesSubtitle" defaultValue={settings.categoriesSubtitle} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Courses Title</label>
+                  <input name="coursesTitle" defaultValue={settings.coursesTitle} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Courses Subtitle</label>
+                  <input name="coursesSubtitle" defaultValue={settings.coursesSubtitle} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">CTA Title</label>
+                <input name="ctaTitle" defaultValue={settings.ctaTitle} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">CTA Subtitle</label>
+                <textarea name="ctaSubtitle" defaultValue={settings.ctaSubtitle} rows={2} className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Section */}
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-indigo-600" />
+                Stats Section
+              </h2>
+              <button type="button" onClick={handleAddStat} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                <Plus className="h-3 w-3" /> Add Stat
+              </button>
+            </div>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+              {stats.map((stat: any, index: number) => (
+                <div key={index} className="space-y-3 rounded-xl bg-gray-50 p-4 ring-1 ring-gray-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-400 uppercase">Stat #{index + 1}</span>
+                    <button type="button" onClick={() => handleRemoveStat(index)} className="text-gray-400 hover:text-red-600">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input 
+                      type="text" 
+                      value={stat.label} 
+                      onChange={(e) => handleStatChange(index, "label", e.target.value)}
+                      className="rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
+                      placeholder="Label"
+                    />
+                    <input 
+                      type="text" 
+                      value={stat.value} 
+                      onChange={(e) => handleStatChange(index, "value", e.target.value)}
+                      className="rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
+                      placeholder="Value"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input 
+                      type="text" 
+                      value={stat.icon} 
+                      onChange={(e) => handleStatChange(index, "icon", e.target.value)}
+                      className="rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
+                      placeholder="Lucide Icon Name"
+                    />
+                    <input 
+                      type="text" 
+                      value={stat.color} 
+                      onChange={(e) => handleStatChange(index, "color", e.target.value)}
+                      className="rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
+                      placeholder="Tailwind Color Classes"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Testimonials Section */}
+          <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6 lg:col-span-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Star className="h-5 w-5 text-indigo-600" />
+                Testimonials
+              </h2>
+              <button type="button" onClick={handleAddTestimonial} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                <Plus className="h-3 w-3" /> Add Testimonial
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="sm:col-span-2 lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Section Title</label>
+                  <input name="testimonialsTitle" defaultValue={settings.testimonialsTitle} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Section Subtitle</label>
+                  <input name="testimonialsSubtitle" defaultValue={settings.testimonialsSubtitle} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Description</label>
+                  <input name="testimonialsDescription" defaultValue={settings.testimonialsDescription} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+                </div>
+              </div>
+              {testimonials.map((testimonial: any, index: number) => (
+                <div key={index} className="space-y-3 rounded-xl bg-gray-50 p-4 ring-1 ring-gray-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-400 uppercase">Testimonial #{index + 1}</span>
+                    <button type="button" onClick={() => handleRemoveTestimonial(index)} className="text-gray-400 hover:text-red-600">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <input 
+                    type="text" 
+                    value={testimonial.name} 
+                    onChange={(e) => handleTestimonialChange(index, "name", e.target.value)}
+                    className="w-full rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
+                    placeholder="Student Name"
+                  />
+                  <input 
+                    type="text" 
+                    value={testimonial.role} 
+                    onChange={(e) => handleTestimonialChange(index, "role", e.target.value)}
+                    className="w-full rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
+                    placeholder="Role/Batch"
+                  />
+                  <textarea 
+                    value={testimonial.content} 
+                    onChange={(e) => handleTestimonialChange(index, "content", e.target.value)}
+                    className="w-full rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
+                    rows={3}
+                    placeholder="Feedback Content"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input 
+                      type="text" 
+                      value={testimonial.avatar} 
+                      onChange={(e) => handleTestimonialChange(index, "avatar", e.target.value)}
+                      className="rounded-lg border-0 bg-white py-2 px-3 text-xs ring-1 ring-gray-200"
+                      placeholder="Avatar URL"
+                    />
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="5"
+                      value={testimonial.rating} 
+                      onChange={(e) => handleTestimonialChange(index, "rating", parseInt(e.target.value))}
+                      className="rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
+                      placeholder="Rating (1-5)"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1115,9 +1390,11 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-white p-4 ring-1 ring-gray-100 lg:flex-row lg:items-center relative">
+    <div className="flex flex-col gap-4 rounded-xl bg-white p-4 ring-1 ring-gray-100 lg:flex-row lg:items-center relative overflow-hidden">
       <div className="flex flex-1 items-center gap-3">
-        <Play className="h-5 w-5 text-indigo-600" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+          <Play className="h-4 w-4 fill-current" />
+        </div>
         <input 
           type="text" 
           value={lesson.title} 
@@ -1128,51 +1405,64 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
       </div>
       
       <div className="flex flex-1 items-center gap-3">
-        <input 
-          type="text" 
-          value={lesson.videoUrl} 
-          onChange={(e) => onUpdate({ videoUrl: e.target.value })}
-          className="flex-1 bg-transparent text-xs text-gray-500 focus:outline-none"
-          placeholder="Video URL or Upload"
-        />
+        <div className="flex-1 relative">
+          <input 
+            type="text" 
+            value={lesson.videoUrl} 
+            onChange={(e) => onUpdate({ videoUrl: e.target.value })}
+            className="w-full bg-gray-50 rounded-lg py-2 px-3 text-xs text-gray-500 focus:outline-none ring-1 ring-gray-100"
+            placeholder="Video URL or Upload"
+          />
+        </div>
+        
         <div className="relative">
           <input 
             type="file" 
             accept="video/*" 
             onChange={handleFileUpload}
-            className="absolute inset-0 opacity-0 cursor-pointer"
+            className="absolute inset-0 opacity-0 cursor-pointer z-10"
             disabled={isUploading}
           />
-          <button className="rounded-lg bg-indigo-50 p-2 text-indigo-600 hover:bg-indigo-100">
-            <Plus className="h-4 w-4" />
+          <button 
+            type="button"
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold transition-all",
+              isUploading ? "bg-gray-100 text-gray-400" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+            )}
+          >
+            <Video className="h-4 w-4" />
+            {isUploading ? "Uploading..." : "Upload"}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <input 
+              type="checkbox" 
+              checked={lesson.isFree} 
+              onChange={(e) => onUpdate({ isFree: e.target.checked })}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+            />
+            <span className="text-[10px] font-bold text-gray-400 uppercase">Free</span>
+          </div>
+          <button 
+            onClick={onRemove}
+            className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+          >
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <input 
-            type="checkbox" 
-            checked={lesson.isFree} 
-            onChange={(e) => onUpdate({ isFree: e.target.checked })}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-          />
-          <span className="text-xs font-bold text-gray-500">Free</span>
-        </div>
-        <button onClick={onRemove} className="text-gray-400 hover:text-red-600">
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-
       {isUploading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/80 backdrop-blur-sm">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/80 backdrop-blur-sm">
           <div className="w-48 space-y-2">
-            <div className="flex justify-between text-[10px] font-bold text-indigo-600">
+            <div className="flex justify-between text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
               <span>Uploading Video...</span>
               <span>{Math.round(progress)}%</span>
             </div>
-            <div className="h-1 w-full rounded-full bg-gray-100">
-              <div className="h-1 rounded-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} />
+            <div className="h-1 w-full rounded-full bg-gray-100 overflow-hidden">
+              <div className="h-1 rounded-full bg-indigo-600 transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
           </div>
         </div>

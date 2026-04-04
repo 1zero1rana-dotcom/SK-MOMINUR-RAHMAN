@@ -24,7 +24,7 @@ export default function Hero() {
           >
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-4 py-1.5 text-sm font-semibold text-primary ring-1 ring-inset ring-primary/20">
               <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-              Admission Batch 2026 is Open!
+              {settings.heroBadge}
             </div>
             
             <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 sm:text-6xl lg:text-7xl leading-[1.1]">
@@ -52,18 +52,12 @@ export default function Hero() {
             </div>
 
             <div className="flex flex-wrap items-center gap-6 pt-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                Expert Instructors
-              </div>
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                Interactive Quizzes
-              </div>
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                Lifetime Access
-              </div>
+              {settings.heroFeatures.map((feature, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm font-medium text-gray-500">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  {feature}
+                </div>
+              ))}
             </div>
           </motion.div>
 
@@ -92,8 +86,8 @@ export default function Hero() {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Active Students</p>
-                    <p className="text-3xl font-black text-gray-900">500,000+</p>
+                    <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">{settings.statsLabel}</p>
+                    <p className="text-3xl font-black text-gray-900">{settings.statsValue}</p>
                   </div>
                   <div className="flex -space-x-3">
                     {[1, 2, 3, 4].map((i) => (

@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, onSnapshot, updateDoc, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 
 interface AuthContextType {
   user: User | null;
@@ -61,10 +62,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
               setRoleFetched(true);
             }
+          }, (error) => {
+            handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
           });
 
-          // Update lastDeviceId on login
-          await setDoc(userDocRef, { lastDeviceId: currentDeviceId }, { merge: true });
+          // Update lastDeviceId on login, and initialize if it doesn't exist
+          try {
+            await setDoc(userDocRef, { 
+              uid: user.uid,
+              email: user.email,
+              role: user.email === "1zero1rana@gmail.com" ? "admin" : "student",
+              lastDeviceId: currentDeviceId,
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+              createdAt: serverTimestamp()
+            }, { merge: true });
+          } catch (error) {
+            handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+          }
           
           // Note: unsubDoc is not returned from here, it's handled by the component unmount or next auth change
         } else {

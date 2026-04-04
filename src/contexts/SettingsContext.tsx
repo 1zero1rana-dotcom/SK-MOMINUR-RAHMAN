@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { SiteSettings, DEFAULT_SETTINGS } from "../types/settings";
+import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 
 interface SettingsContextType {
   settings: SiteSettings;
@@ -37,10 +38,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           document.documentElement.style.setProperty('--secondary-color', data.secondaryColor);
         }
       } else {
-        // Initialize settings if they don't exist
-        setDoc(settingsDocRef, DEFAULT_SETTINGS);
+        // Initialize settings if they don't exist (this might fail if not admin, which is fine)
+        setDoc(settingsDocRef, DEFAULT_SETTINGS).catch(err => {
+          console.warn("Settings initialization skipped: insufficient permissions.");
+        });
       }
       setLoading(false);
+    }, (error) => {
+      // If we can't read settings, we still want the app to load with defaults
+      console.error("Error fetching settings:", error);
+      setLoading(false);
+      // We don't throw here to avoid blocking the whole app, but we log it
+      try {
+        handleFirestoreError(error, OperationType.GET, "settings/site");
+      } catch (e) {
+        // Log the structured error but don't crash the provider
+        console.error("Structured Settings Error:", e);
+      }
     });
 
     return () => unsubscribe();
@@ -48,7 +62,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateSettings = async (newSettings: Partial<SiteSettings>) => {
     const settingsDocRef = doc(db, "settings", "site");
-    await setDoc(settingsDocRef, { ...settings, ...newSettings }, { merge: true });
+    try {
+      await setDoc(settingsDocRef, { ...settings, ...newSettings }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, "settings/site");
+    }
   };
 
   return (

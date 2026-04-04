@@ -91,6 +91,19 @@
         "siteDescription": { "type": "string" },
         "heroTitle": { "type": "string" },
         "heroSubtitle": { "type": "string" },
+        "heroBadge": { "type": "string" },
+        "heroFeatures": { "type": "array", "items": { "type": "string" } },
+        "statsLabel": { "type": "string" },
+        "statsValue": { "type": "string" },
+        "categoriesTitle": { "type": "string" },
+        "categoriesSubtitle": { "type": "string" },
+        "coursesTitle": { "type": "string" },
+        "coursesSubtitle": { "type": "string" },
+        "ctaTitle": { "type": "string" },
+        "ctaSubtitle": { "type": "string" },
+        "testimonialsTitle": { "type": "string" },
+        "testimonialsSubtitle": { "type": "string" },
+        "testimonialsDescription": { "type": "string" },
         "bkashNumber": { "type": "string" },
         "paymentInstructions": { "type": "string" },
         "footerText": { "type": "string" },
@@ -103,7 +116,9 @@
         "secondaryColor": { "type": "string" },
         "headerLinks": { "type": "array" },
         "footerLinks": { "type": "array" },
-        "language": { "type": "string" }
+        "language": { "type": "string" },
+        "stats": { "type": "array" },
+        "testimonials": { "type": "array" }
       }
     }
   },

@@ -2,12 +2,14 @@ import Hero from "../components/Hero";
 import Stats from "../components/Stats";
 import CourseCard from "../components/CourseCard";
 import Testimonials from "../components/Testimonials";
-import { HSC_ICT_COURSES } from "../constants";
 import { motion } from "motion/react";
 import { ArrowRight, BookOpen, GraduationCap, Laptop, Code, Database, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSettings } from "../contexts/SettingsContext";
+import { useState, useEffect } from "react";
+import { collection, onSnapshot, query, limit } from "firebase/firestore";
+import { db } from "../firebase";
 
 const categories = [
   { name: "Academic", icon: GraduationCap, color: "text-blue-600 bg-blue-50" },
@@ -21,6 +23,18 @@ const categories = [
 export default function Home() {
   const { user } = useAuth();
   const { settings } = useSettings();
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, "courses"), limit(3));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   return (
     <main className="bg-white">
       <Hero />
@@ -30,9 +44,9 @@ export default function Home() {
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-16 text-center">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-primary">Categories</h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-primary">{settings.categoriesTitle}</h2>
             <p className="mt-4 text-4xl font-black tracking-tight text-gray-900 sm:text-5xl">
-              Choose Your Learning Path
+              {settings.categoriesSubtitle}
             </p>
           </div>
 
@@ -61,9 +75,9 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-16 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-widest text-primary">Our Courses</h2>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-primary">{settings.coursesTitle}</h2>
               <p className="mt-4 text-4xl font-black tracking-tight text-gray-900 sm:text-5xl">
-                Featured Online Batches
+                {settings.coursesSubtitle}
               </p>
             </div>
             <Link
@@ -75,11 +89,21 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {HSC_ICT_COURSES.map((course) => (
-              <CourseCard key={course.id} course={course} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            </div>
+          ) : courses.length > 0 ? (
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {courses.map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No courses available at the moment.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -94,11 +118,10 @@ export default function Home() {
             <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-secondary/20 blur-3xl" />
 
             <h2 className="mx-auto max-w-3xl text-4xl font-black tracking-tight sm:text-6xl leading-[1.1]">
-              Ready to Ace Your {settings.siteName.split(' ').slice(-1)} Exam?
+              {settings.ctaTitle}
             </h2>
             <p className="mx-auto mt-8 max-w-2xl text-lg text-white/80">
-              Join thousands of students who are already learning with {settings.siteName}. 
-              Get lifetime access to high-quality content and expert support.
+              {settings.ctaSubtitle}
             </p>
             <div className="mt-12 flex flex-wrap justify-center gap-6">
               <Link
