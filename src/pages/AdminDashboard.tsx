@@ -257,6 +257,7 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
   const [testimonials, setTestimonials] = useState(settings.testimonials || []);
   const [primaryColor, setPrimaryColor] = useState(settings.primaryColor || "#4f46e5");
   const [secondaryColor, setSecondaryColor] = useState(settings.secondaryColor || "#6366f1");
+  const [footerLinks, setFooterLinks] = useState(settings.footerLinks || []);
 
   useEffect(() => {
     setHeaderLinks(settings.headerLinks || []);
@@ -265,6 +266,7 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
     setTestimonials(settings.testimonials || []);
     setPrimaryColor(settings.primaryColor || "#4f46e5");
     setSecondaryColor(settings.secondaryColor || "#6366f1");
+    setFooterLinks(settings.footerLinks || []);
   }, [settings]);
 
   const handleAddLink = () => {
@@ -279,6 +281,20 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
     const newLinks = [...headerLinks];
     newLinks[index][field] = value;
     setHeaderLinks(newLinks);
+  };
+
+  const handleAddFooterLink = () => {
+    setFooterLinks([...footerLinks, { name: "New Link", path: "/" }]);
+  };
+
+  const handleRemoveFooterLink = (index: number) => {
+    setFooterLinks(footerLinks.filter((_: any, i: number) => i !== index));
+  };
+
+  const handleFooterLinkChange = (index: number, field: string, value: string) => {
+    const newLinks = [...footerLinks];
+    newLinks[index][field] = value;
+    setFooterLinks(newLinks);
   };
 
   const handleAddFeature = () => {
@@ -402,6 +418,7 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
       secondaryColor,
       logoUrl: settings.logoUrl,
       headerLinks,
+      footerLinks,
       heroFeatures,
       stats,
       testimonials,
@@ -854,13 +871,48 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
 
           {/* Footer */}
           <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6 lg:col-span-2">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-indigo-600" />
-              Footer Content
-            </h2>
-            <div>
-              <label className="block text-sm font-bold text-gray-700">Footer Copyright Text</label>
-              <input name="footerText" defaultValue={settings.footerText} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-indigo-600" />
+                Footer Content
+              </h2>
+              <button type="button" onClick={handleAddFooterLink} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                <Plus className="h-3 w-3" /> Add Footer Link
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Footer Copyright Text</label>
+                <input name="footerText" defaultValue={settings.footerText} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+              
+              <div className="space-y-3">
+                <label className="block text-sm font-bold text-gray-700">Footer Links</label>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                  {footerLinks.map((link: any, index: number) => (
+                    <div key={index} className="flex items-center gap-2 rounded-xl bg-gray-50 p-2 ring-1 ring-gray-200">
+                      <input 
+                        type="text" 
+                        value={link.name} 
+                        onChange={(e) => handleFooterLinkChange(index, "name", e.target.value)}
+                        className="flex-1 bg-transparent text-xs font-bold text-gray-900 focus:outline-none"
+                        placeholder="Link Name"
+                      />
+                      <input 
+                        type="text" 
+                        value={link.path} 
+                        onChange={(e) => handleFooterLinkChange(index, "path", e.target.value)}
+                        className="flex-1 bg-transparent text-[10px] text-gray-500 focus:outline-none"
+                        placeholder="/path"
+                      />
+                      <button type="button" onClick={() => handleRemoveFooterLink(index)} className="text-gray-400 hover:text-red-600">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2083,17 +2135,30 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const getVideoDuration = (url: string): Promise<string> => {
+  const getVideoDuration = (source: string | File): Promise<string> => {
     return new Promise((resolve) => {
       const video = document.createElement('video');
       video.preload = 'metadata';
+      video.crossOrigin = "anonymous";
+      
       video.onloadedmetadata = () => {
         const minutes = Math.floor(video.duration / 60);
         const seconds = Math.floor(video.duration % 60);
         resolve(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+        URL.revokeObjectURL(video.src);
       };
-      video.onerror = () => resolve("0:00");
-      video.src = url;
+      
+      video.onerror = () => {
+        console.error("Error loading video metadata for duration");
+        resolve("0:00");
+        if (source instanceof File) URL.revokeObjectURL(video.src);
+      };
+      
+      if (source instanceof File) {
+        video.src = URL.createObjectURL(source);
+      } else {
+        video.src = source;
+      }
     });
   };
 
@@ -2106,6 +2171,9 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
     setProgress(0);
 
     try {
+      // Get duration locally before upload
+      const duration = await getVideoDuration(file);
+      
       // Sanitize filename to avoid issues with special characters
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
       const storageRef = ref(storage, `courses/${courseId}/videos/${Date.now()}_${sanitizedName}`);
@@ -2125,8 +2193,6 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
       const url = await getDownloadURL(result.ref);
       console.log("LessonItem success! URL:", url);
       
-      // Auto-calculate duration for direct video files
-      const duration = await getVideoDuration(url);
       onUpdate({ videoUrl: url, duration });
       
       setIsUploading(false);
@@ -2177,8 +2243,23 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
               type="button"
               onClick={async () => {
                 if (lesson.videoUrl) {
+                  const isEmbed = lesson.videoUrl.includes("youtube.com") || 
+                                 lesson.videoUrl.includes("youtu.be") || 
+                                 lesson.videoUrl.includes("vimeo.com");
+                  
+                  if (isEmbed) {
+                    setError("Auto-duration is only for direct video files. Please enter manually for YouTube/Vimeo.");
+                    setTimeout(() => setError(null), 5000);
+                    return;
+                  }
+
                   const duration = await getVideoDuration(lesson.videoUrl);
-                  if (duration !== "0:00") onUpdate({ duration });
+                  if (duration !== "0:00") {
+                    onUpdate({ duration });
+                  } else {
+                    setError("Could not get duration. Please enter manually.");
+                    setTimeout(() => setError(null), 5000);
+                  }
                 }
               }}
               className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"

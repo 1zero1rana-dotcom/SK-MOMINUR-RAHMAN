@@ -37,6 +37,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (data.secondaryColor) {
           document.documentElement.style.setProperty('--secondary-color', data.secondaryColor);
         }
+
+        // Update document title
+        if (data.siteName) {
+          document.title = data.siteName;
+        }
       } else {
         // Initialize settings if they don't exist (this might fail if not admin, which is fine)
         setDoc(settingsDocRef, DEFAULT_SETTINGS).catch(err => {
