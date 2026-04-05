@@ -14,7 +14,16 @@ import {
   ChevronDown,
   Clock
 } from "lucide-react";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { 
+  doc, 
+  getDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  updateDoc,
+  serverTimestamp 
+} from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { cn } from "../lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -26,11 +35,13 @@ export default function CoursePlayer() {
   const navigate = useNavigate();
   const { user, loading: authLoading, role } = useAuth();
   const [course, setCourse] = useState<any>(null);
+  const [enrollment, setEnrollment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [activeLesson, setActiveLesson] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedChapters, setExpandedChapters] = useState<string[]>([]);
+  const [isMarkingComplete, setIsMarkingComplete] = useState(false);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -58,6 +69,9 @@ export default function CoursePlayer() {
             navigate(`/course/${id}`);
             return;
           }
+
+          const enrollmentDoc = enrollmentSnap.docs[0];
+          setEnrollment({ id: enrollmentDoc.id, ...enrollmentDoc.data() });
         }
         
         setIsEnrolled(true);
@@ -90,6 +104,46 @@ export default function CoursePlayer() {
         ? prev.filter(id => id !== chapterId) 
         : [...prev, chapterId]
     );
+  };
+
+  const markAsComplete = async (lessonId: string) => {
+    if (!enrollment || !course || isMarkingComplete) return;
+    
+    const completedLessons = enrollment.completedLessons || [];
+    if (completedLessons.includes(lessonId)) return;
+
+    setIsMarkingComplete(true);
+    try {
+      const newCompletedLessons = [...completedLessons, lessonId];
+      
+      // Calculate total lessons
+      let totalLessons = 0;
+      course.chapters?.forEach((c: any) => {
+        totalLessons += c.lessons?.length || 0;
+      });
+
+      const progress = Math.round((newCompletedLessons.length / totalLessons) * 100);
+
+      await updateDoc(doc(db, "enrollments", enrollment.id), {
+        completedLessons: newCompletedLessons,
+        progress: progress,
+        lastAccessed: serverTimestamp()
+      });
+
+      setEnrollment({
+        ...enrollment,
+        completedLessons: newCompletedLessons,
+        progress: progress
+      });
+    } catch (error) {
+      console.error("Error marking lesson as complete:", error);
+    } finally {
+      setIsMarkingComplete(false);
+    }
+  };
+
+  const isLessonCompleted = (lessonId: string) => {
+    return enrollment?.completedLessons?.includes(lessonId);
   };
 
   const getEmbedUrl = (url: string) => {
@@ -145,9 +199,12 @@ export default function CoursePlayer() {
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-2">
             <div className="h-2 w-32 rounded-full bg-gray-800 overflow-hidden">
-              <div className="h-full w-1/3 bg-indigo-500" />
+              <div 
+                className="h-full bg-indigo-500 transition-all duration-500" 
+                style={{ width: `${enrollment?.progress || 0}%` }}
+              />
             </div>
-            <span className="text-xs font-bold text-gray-400">33% Complete</span>
+            <span className="text-xs font-bold text-gray-400">{enrollment?.progress || 0}% Complete</span>
           </div>
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -200,9 +257,27 @@ export default function CoursePlayer() {
                 <h2 className="text-3xl font-black text-white">{activeLesson?.title}</h2>
                 <p className="mt-2 text-gray-400 font-medium">Chapter: {(course as any).chapters?.find((c: any) => c.lessons?.some((l: any) => l.id === activeLesson?.id))?.title}</p>
               </div>
-              <button className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-lg shadow-indigo-900/20 transition-all hover:bg-indigo-700">
-                <CheckCircle2 className="h-5 w-5" />
-                Mark as Complete
+              <button 
+                onClick={() => markAsComplete(activeLesson.id)}
+                disabled={isMarkingComplete || isLessonCompleted(activeLesson.id)}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl px-6 py-3 font-bold text-white shadow-lg transition-all",
+                  isLessonCompleted(activeLesson.id)
+                    ? "bg-green-600 shadow-green-900/20"
+                    : "bg-indigo-600 shadow-indigo-900/20 hover:bg-indigo-700"
+                )}
+              >
+                {isLessonCompleted(activeLesson.id) ? (
+                  <>
+                    <CheckCircle2 className="h-5 w-5" />
+                    Completed
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-5 w-5" />
+                    {isMarkingComplete ? "Marking..." : "Mark as Complete"}
+                  </>
+                )}
               </button>
             </div>
 
@@ -278,9 +353,17 @@ export default function CoursePlayer() {
                               >
                                 <div className={cn(
                                   "flex h-6 w-6 items-center justify-center rounded-full border",
-                                  activeLesson?.id === lesson.id ? "border-indigo-400 bg-indigo-400/20" : "border-gray-700"
+                                  activeLesson?.id === lesson.id 
+                                    ? "border-indigo-400 bg-indigo-400/20" 
+                                    : isLessonCompleted(lesson.id)
+                                      ? "border-green-500 bg-green-500/20"
+                                      : "border-gray-700"
                                 )}>
-                                  <Play className="h-3 w-3" />
+                                  {isLessonCompleted(lesson.id) ? (
+                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                  ) : (
+                                    <Play className="h-3 w-3" />
+                                  )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-bold truncate">{lesson.title}</p>

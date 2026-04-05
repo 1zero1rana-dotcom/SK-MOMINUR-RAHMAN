@@ -20,22 +20,9 @@ async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "custom", // Use custom to handle the fallback manually
+      appType: "spa", // Let Vite handle the SPA fallback automatically
     });
     app.use(vite.middlewares);
-
-    // For any other request in dev, serve index.html with Vite transformation
-    app.use("*", async (req, res, next) => {
-      const url = req.originalUrl;
-      try {
-        let template = await fs.readFile(path.resolve(__dirname, "index.html"), "utf-8");
-        template = await vite.transformIndexHtml(url, template);
-        res.status(200).set({ "Content-Type": "text/html" }).end(template);
-      } catch (e) {
-        vite.ssrFixStacktrace(e as Error);
-        next(e);
-      }
-    });
   } else {
     // Serve static files from the dist directory in production
     const distPath = path.join(process.cwd(), 'dist');

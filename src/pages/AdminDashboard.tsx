@@ -35,7 +35,8 @@ import {
   MoveDown,
   Trophy,
   Star,
-  Layout
+  Layout,
+  Clock
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "../lib/utils";
@@ -515,9 +516,13 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
                       await onUpdate({ ...settings, logoUrl: url });
                     }}
                   />
-                  <p className="text-[10px] text-gray-400 italic">
-                    Tip: If upload is stuck, host your image on <a href="https://imgbb.com/" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">ImgBB</a> and paste the direct link above.
-                  </p>
+                  <div className="rounded-xl bg-amber-50 p-3 border border-amber-100">
+                    <p className="text-[10px] text-amber-800 font-medium leading-relaxed">
+                      <strong>ImgBB Tip:</strong> Do not use the "Viewer Link" (e.g. ibb.co/XYZ). 
+                      Instead, copy the <strong>Direct Link</strong> (e.g. i.ibb.co/XYZ/logo.png). 
+                      The URL <strong>must</strong> end in .jpg, .png, or .webp.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2078,6 +2083,20 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  const getVideoDuration = (url: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        const minutes = Math.floor(video.duration / 60);
+        const seconds = Math.floor(video.duration % 60);
+        resolve(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+      };
+      video.onerror = () => resolve("0:00");
+      video.src = url;
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2105,7 +2124,11 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
       
       const url = await getDownloadURL(result.ref);
       console.log("LessonItem success! URL:", url);
-      onUpdate({ videoUrl: url });
+      
+      // Auto-calculate duration for direct video files
+      const duration = await getVideoDuration(url);
+      onUpdate({ videoUrl: url, duration });
+      
       setIsUploading(false);
       setProgress(100);
     } catch (err: any) {
@@ -2142,13 +2165,38 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
       
       <div className="flex flex-1 items-center gap-3">
         <div className="flex-1 relative">
-          <input 
-            type="text" 
-            value={lesson.videoUrl} 
-            onChange={(e) => onUpdate({ videoUrl: e.target.value })}
-            className="w-full bg-gray-50 rounded-lg py-2 px-3 text-xs text-gray-500 focus:outline-none ring-1 ring-gray-100"
-            placeholder="Video URL or Upload"
-          />
+          <div className="flex items-center gap-2">
+            <input 
+              type="text" 
+              value={lesson.videoUrl} 
+              onChange={(e) => onUpdate({ videoUrl: e.target.value })}
+              className="flex-1 bg-gray-50 rounded-lg py-2 px-3 text-xs text-gray-900 font-medium focus:outline-none ring-1 ring-gray-100 focus:ring-indigo-600 transition-all"
+              placeholder="Paste Video URL (YouTube, Vimeo, Drive...)"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                if (lesson.videoUrl) {
+                  const duration = await getVideoDuration(lesson.videoUrl);
+                  if (duration !== "0:00") onUpdate({ duration });
+                }
+              }}
+              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              title="Auto-calculate duration"
+            >
+              <Clock className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-1 bg-gray-50 rounded-lg py-1 px-2 ring-1 ring-gray-100">
+              <Clock className="h-3 w-3 text-gray-400" />
+              <input 
+                type="text" 
+                value={lesson.duration || ""} 
+                onChange={(e) => onUpdate({ duration: e.target.value })}
+                className="w-12 bg-transparent text-[10px] font-bold text-gray-900 focus:outline-none"
+                placeholder="10:00"
+              />
+            </div>
+          </div>
           {error && (
             <div className="absolute top-full left-0 mt-1 text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md z-10 shadow-sm">
               {error}

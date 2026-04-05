@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Users, BookOpen, Star, ArrowRight } from "lucide-react";
+import { Users, BookOpen, Star, ArrowRight, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Course } from "../types";
 
@@ -9,6 +9,27 @@ interface CourseCardProps {
 
 export default function CourseCard({ course }: { course: any }) {
   const lessonsCount = course.chapters?.reduce((acc: number, ch: any) => acc + (ch.lessons?.length || 0), 0) || 0;
+  
+  const totalSeconds = course.chapters?.reduce((acc: number, ch: any) => {
+    return acc + (ch.lessons?.reduce((lAcc: number, l: any) => {
+      const d = l.duration || "0:00";
+      const parts = d.split(":");
+      let s = 0;
+      if (parts.length === 2) {
+        s = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+      } else if (parts.length === 1) {
+        s = parseInt(parts[0]) * 60;
+      }
+      return lAcc + (isNaN(s) ? 0 : s);
+    }, 0) || 0);
+  }, 0) || 0;
+
+  const formatDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
 
   return (
     <motion.div
@@ -57,6 +78,10 @@ export default function CourseCard({ course }: { course: any }) {
               <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
                 <BookOpen className="h-4 w-4 text-indigo-400" />
                 {lessonsCount} Lessons
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <Clock className="h-4 w-4 text-indigo-400" />
+                {formatDuration(totalSeconds)}
               </div>
             </div>
           </div>

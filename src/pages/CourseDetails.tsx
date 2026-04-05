@@ -89,6 +89,27 @@ export default function CourseDetails() {
                   <BookOpen className="h-5 w-5 text-indigo-400" />
                   {course.chapters?.reduce((acc: number, ch: any) => acc + (ch.lessons?.length || 0), 0)} Lessons
                 </div>
+                <div className="flex items-center gap-2 text-sm font-medium text-indigo-200">
+                  <Clock className="h-5 w-5 text-indigo-400" />
+                  {(() => {
+                    const totalSeconds = course.chapters?.reduce((acc: number, ch: any) => {
+                      return acc + (ch.lessons?.reduce((lAcc: number, l: any) => {
+                        const d = l.duration || "0:00";
+                        const parts = d.split(":");
+                        let s = 0;
+                        if (parts.length === 2) {
+                          s = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+                        } else if (parts.length === 1) {
+                          s = parseInt(parts[0]) * 60;
+                        }
+                        return lAcc + (isNaN(s) ? 0 : s);
+                      }, 0) || 0);
+                    }, 0) || 0;
+                    const h = Math.floor(totalSeconds / 3600);
+                    const m = Math.floor((totalSeconds % 3600) / 60);
+                    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+                  })()} Total
+                </div>
               </div>
               <div className="flex items-center gap-4">
                 <img
