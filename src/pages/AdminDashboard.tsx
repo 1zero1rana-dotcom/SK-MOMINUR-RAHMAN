@@ -34,7 +34,8 @@ import {
   MoveUp,
   MoveDown,
   Trophy,
-  Star
+  Star,
+  Layout
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "../lib/utils";
@@ -63,10 +64,97 @@ const adminNavItems = [
   { name: "Payments", icon: CreditCard, id: "payments" },
   { name: "Courses", icon: BookOpen, id: "courses" },
   { name: "Students", icon: Users, id: "students" },
+  { name: "Page Builder", icon: Layout, id: "builder" },
+  { name: "Slider", icon: ImageIcon, id: "slider" },
+  { name: "Theme", icon: Palette, id: "theme" },
   { name: "Settings", icon: Settings, id: "settings" },
 ];
 
 import { useSettings } from "../contexts/SettingsContext";
+
+function FileUpload({ 
+  onUpload, 
+  path, 
+  accept = "image/*", 
+  label = "Upload", 
+  className = "" 
+}: { 
+  onUpload: (url: string) => void; 
+  path: string; 
+  accept?: string; 
+  label?: string; 
+  className?: string;
+}) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setProgress(0);
+
+    try {
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+      const storageRef = ref(storage, `${path}/${Date.now()}_${sanitizedName}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setProgress(p);
+        },
+        (error) => {
+          console.error("Upload error:", error);
+          setIsUploading(false);
+          alert("Upload failed: " + error.message);
+        },
+        async () => {
+          const url = await getDownloadURL(uploadTask.snapshot.ref);
+          onUpload(url);
+          setIsUploading(false);
+          setProgress(0);
+        }
+      );
+    } catch (error: any) {
+      console.error("Upload setup error:", error);
+      setIsUploading(false);
+      alert("Upload setup failed: " + error.message);
+    }
+  };
+
+  return (
+    <div className={cn("relative inline-block", className)}>
+      <input 
+        type="file" 
+        accept={accept} 
+        onChange={handleFileChange}
+        className="absolute inset-0 opacity-0 cursor-pointer z-10"
+        disabled={isUploading}
+      />
+      <button 
+        type="button"
+        className={cn(
+          "flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all",
+          isUploading ? "bg-gray-100 text-gray-400" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+        )}
+      >
+        {isUploading ? (
+          <>
+            <div className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+            {Math.round(progress)}%
+          </>
+        ) : (
+          <>
+            <Plus className="h-3 w-3" />
+            {label}
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -156,6 +244,9 @@ export default function AdminDashboard() {
           {activeTab === "payments" && <AdminPayments />}
           {activeTab === "courses" && <AdminCourses />}
           {activeTab === "students" && <AdminStudents />}
+          {activeTab === "builder" && <AdminBuilder settings={settings} onUpdate={updateSettings} />}
+          {activeTab === "slider" && <AdminSlider settings={settings} onUpdate={updateSettings} />}
+          {activeTab === "theme" && <AdminTheme settings={settings} onUpdate={updateSettings} />}
           {activeTab === "settings" && <AdminSettings settings={settings} onUpdate={updateSettings} />}
         </div>
       </main>
@@ -165,8 +256,6 @@ export default function AdminDashboard() {
 
 function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: any) => Promise<void> }) {
   const [isSaving, setIsSaving] = useState(false);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [headerLinks, setHeaderLinks] = useState(settings.headerLinks || []);
   const [heroFeatures, setHeroFeatures] = useState(settings.heroFeatures || []);
   const [stats, setStats] = useState(settings.stats || []);
@@ -239,32 +328,28 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
     setTestimonials(newTestimonials);
   };
 
+  const [testStatus, setTestStatus] = useState<string | null>(null);
+
+  const testStorage = async () => {
+    setTestStatus("Testing...");
+    try {
+      const testRef = ref(storage, `test/connection_test_${Date.now()}.txt`);
+      const blob = new Blob(["Storage connection test successful!"], { type: "text/plain" });
+      await uploadBytesResumable(testRef, blob);
+      const url = await getDownloadURL(testRef);
+      setTestStatus(`Success! Storage is working. Test file: ${url}`);
+      console.log("Storage test success:", url);
+    } catch (err: any) {
+      console.error("Storage test failed:", err);
+      setTestStatus(`Failed: ${err.message} (Code: ${err.code})`);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     const formData = new FormData(e.target as HTMLFormElement);
     
-    let logoUrl = settings.logoUrl;
-
-    if (logoFile) {
-      const storageRef = ref(storage, `site/logo_${Date.now()}`);
-      const uploadTask = uploadBytesResumable(storageRef, logoFile);
-      
-      await new Promise((resolve, reject) => {
-        uploadTask.on('state_changed', 
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUploadProgress(progress);
-          }, 
-          (error) => reject(error), 
-          async () => {
-            logoUrl = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(logoUrl);
-          }
-        );
-      });
-    }
-
     const newSettings = {
       siteName: formData.get("siteName") as string,
       siteDescription: formData.get("siteDescription") as string,
@@ -287,11 +372,12 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
       footerText: formData.get("footerText") as string,
       contactEmail: formData.get("contactEmail") as string,
       contactPhone: formData.get("contactPhone") as string,
+      contactAddress: formData.get("contactAddress") as string,
       facebookUrl: formData.get("facebookUrl") as string,
       youtubeUrl: formData.get("youtubeUrl") as string,
       primaryColor,
       secondaryColor,
-      logoUrl,
+      logoUrl: settings.logoUrl,
       headerLinks,
       heroFeatures,
       stats,
@@ -304,8 +390,6 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
     try {
       await onUpdate(newSettings);
       alert("Settings updated successfully!");
-      setLogoFile(null);
-      setUploadProgress(0);
     } catch (error) {
       console.error("Error updating settings:", error);
       alert("Failed to update settings. Please check console for details.");
@@ -384,17 +468,39 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
                   {settings.logoUrl && (
                     <img src={settings.logoUrl} alt="Logo" className="h-12 w-12 rounded-lg object-contain ring-1 ring-gray-200 p-1" />
                   )}
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                  />
-                </div>
-                {uploadProgress > 0 && uploadProgress < 100 && (
-                  <div className="mt-2 h-1 w-full rounded-full bg-gray-100">
-                    <div className="h-1 rounded-full bg-indigo-600 transition-all" style={{ width: `${uploadProgress}%` }} />
+                  <div className="flex-1 flex gap-2">
+                    <input 
+                      name="logoUrl" 
+                      value={settings.logoUrl} 
+                      type="hidden" 
+                    />
+                    <FileUpload 
+                      path="site" 
+                      label="Upload Logo"
+                      onUpload={async (url) => {
+                        await onUpdate({ ...settings, logoUrl: url });
+                      }}
+                    />
                   </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={testStorage}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-xl transition-all"
+                >
+                  <Video className="h-4 w-4" />
+                  Test Storage Connection
+                </button>
+                {testStatus && (
+                  <p className={cn(
+                    "mt-2 text-[10px] font-bold",
+                    testStatus.startsWith("Success") ? "text-green-600" : "text-red-600"
+                  )}>
+                    {testStatus}
+                  </p>
                 )}
               </div>
             </div>
@@ -641,21 +747,31 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
                     rows={3}
                     placeholder="Feedback Content"
                   />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input 
-                      type="text" 
-                      value={testimonial.avatar} 
-                      onChange={(e) => handleTestimonialChange(index, "avatar", e.target.value)}
-                      className="rounded-lg border-0 bg-white py-2 px-3 text-xs ring-1 ring-gray-200"
-                      placeholder="Avatar URL"
-                    />
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase">Avatar</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={testimonial.avatar} 
+                        onChange={(e) => handleTestimonialChange(index, "avatar", e.target.value)}
+                        className="flex-1 rounded-lg border-0 bg-white py-2 px-3 text-xs ring-1 ring-gray-200"
+                        placeholder="Avatar URL"
+                      />
+                      <FileUpload 
+                        path="testimonials/avatars" 
+                        onUpload={(url) => handleTestimonialChange(index, "avatar", url)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase">Rating (1-5)</label>
                     <input 
                       type="number" 
                       min="1" 
                       max="5"
                       value={testimonial.rating} 
                       onChange={(e) => handleTestimonialChange(index, "rating", parseInt(e.target.value))}
-                      className="rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
+                      className="w-full rounded-lg border-0 bg-white py-2 px-3 text-sm ring-1 ring-gray-200"
                       placeholder="Rating (1-5)"
                     />
                   </div>
@@ -700,6 +816,10 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-bold text-gray-700">Address</label>
+                <input name="contactAddress" defaultValue={settings.contactAddress} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
+              </div>
+              <div>
                 <label className="block text-sm font-bold text-gray-700">Facebook URL</label>
                 <input name="facebookUrl" defaultValue={settings.facebookUrl} type="text" className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" />
               </div>
@@ -729,7 +849,7 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
             disabled={isSaving}
             className="rounded-2xl bg-indigo-600 px-12 py-4 font-bold text-white shadow-xl shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 transition-all hover:scale-105"
           >
-            {isSaving ? `Saving... ${Math.round(uploadProgress)}%` : "Save All Settings"}
+            {isSaving ? "Saving..." : "Save All Settings"}
           </button>
         </div>
       </form>
@@ -844,6 +964,534 @@ function AdminStudents() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminBuilder({ settings, onUpdate }: { settings: any; onUpdate: (s: any) => Promise<void> }) {
+  const [sections, setSections] = useState(settings.homeSections || []);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleToggleVisibility = (id: string) => {
+    setSections(sections.map((s: any) => s.id === id ? { ...s, visible: !s.visible } : s));
+  };
+
+  const handleMove = (index: number, direction: "up" | "down") => {
+    const newSections = [...sections];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= sections.length) return;
+    
+    [newSections[index], newSections[targetIndex]] = [newSections[targetIndex], newSections[index]];
+    
+    // Update order property
+    newSections.forEach((s, i) => s.order = i);
+    setSections(newSections);
+  };
+
+  const handleAddSection = (type: any) => {
+    setSections([...sections, { 
+      id: Date.now().toString(), 
+      type, 
+      visible: true, 
+      order: sections.length,
+      content: type === "custom_html" ? "<div class='py-12 text-center'><h2 class='text-3xl font-bold'>New Custom Section</h2></div>" : ""
+    }]);
+  };
+
+  const handleRemoveSection = (id: string) => {
+    setSections(sections.filter((s: any) => s.id !== id));
+  };
+
+  const handleContentChange = (id: string, content: string) => {
+    setSections(sections.map((s: any) => s.id === id ? { ...s, content } : s));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdate({ ...settings, homeSections: sections });
+      console.log("Builder settings saved!");
+    } catch (error) {
+      console.error("Error saving builder settings:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-gray-900">Page Builder</h1>
+          <p className="mt-2 text-lg text-gray-600">Reorder and toggle visibility of home page sections.</p>
+        </div>
+        <div className="flex gap-4">
+          <div className="flex items-center gap-2">
+            <select 
+              className="rounded-xl border-0 bg-white py-2 px-4 text-sm ring-1 ring-gray-200"
+              onChange={(e) => e.target.value && handleAddSection(e.target.value)}
+              value=""
+            >
+              <option value="">Add Section...</option>
+              <option value="hero">Hero</option>
+              <option value="stats">Stats</option>
+              <option value="categories">Categories</option>
+              <option value="courses">Courses</option>
+              <option value="cta">CTA</option>
+              <option value="testimonials">Testimonials</option>
+              <option value="custom_html">Custom HTML</option>
+            </select>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 disabled:opacity-50"
+          >
+            <Save className="h-5 w-5" />
+            {isSaving ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </header>
+
+      <div className="space-y-4">
+        {sections.sort((a: any, b: any) => a.order - b.order).map((section: any, index: number) => (
+          <div key={section.id} className="space-y-4">
+            <div 
+              className={cn(
+                "flex items-center justify-between rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 transition-all",
+                !section.visible && "opacity-50 grayscale"
+              )}
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-1">
+                  <button 
+                    onClick={() => handleMove(index, "up")} 
+                    disabled={index === 0}
+                    className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                  >
+                    <MoveUp className="h-4 w-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleMove(index, "down")} 
+                    disabled={index === sections.length - 1}
+                    className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                  >
+                    <MoveDown className="h-4 w-4" />
+                  </button>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 capitalize">{section.type.replace('_', ' ')}</h3>
+                  <p className="text-xs text-gray-500">Section ID: {section.id}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => handleToggleVisibility(section.id)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all",
+                    section.visible ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+                  )}
+                >
+                  {section.visible ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                  {section.visible ? "Visible" : "Hidden"}
+                </button>
+                <button
+                  onClick={() => handleRemoveSection(section.id)}
+                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {section.type === "custom_html" && (
+              <div className="rounded-3xl bg-gray-50 p-6 ring-1 ring-gray-200">
+                <label className="block text-sm font-bold text-gray-700 mb-2">Custom HTML Content</label>
+                <textarea
+                  value={section.content || ""}
+                  onChange={(e) => handleContentChange(section.id, e.target.value)}
+                  rows={5}
+                  className="w-full rounded-2xl border-0 bg-white p-4 font-mono text-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-indigo-500"
+                  placeholder="<div>Your HTML here...</div>"
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminSlider({ settings, onUpdate }: { settings: any; onUpdate: (s: any) => Promise<void> }) {
+  const [slides, setSlides] = useState(settings.slides || []);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleAddSlide = () => {
+    setSlides([...slides, { 
+      id: Date.now().toString(), 
+      type: "image", 
+      url: "https://picsum.photos/seed/new/1920/1080",
+      title: "New Slide Title",
+      subtitle: "New slide subtitle text goes here.",
+      buttonText: "Learn More",
+      buttonLink: "/"
+    }]);
+  };
+
+  const handleRemoveSlide = (id: string) => {
+    setSlides(slides.filter((s: any) => s.id !== id));
+  };
+
+  const handleSlideChange = (id: string, field: string, value: string) => {
+    setSlides(slides.map((s: any) => s.id === id ? { ...s, [field]: value } : s));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdate({ ...settings, slides });
+      console.log("Slider settings saved!");
+    } catch (error) {
+      console.error("Error saving slider settings:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-gray-900">Home Slider</h1>
+          <p className="mt-2 text-lg text-gray-600">Manage images and videos for the main home page slider.</p>
+        </div>
+        <div className="flex gap-4">
+          <button
+            onClick={handleAddSlide}
+            className="flex items-center gap-2 rounded-2xl bg-white border border-gray-200 px-6 py-3 font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+          >
+            <Plus className="h-5 w-5" />
+            Add Slide
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 disabled:opacity-50"
+          >
+            <Save className="h-5 w-5" />
+            {isSaving ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {slides.map((slide: any) => (
+          <div key={slide.id} className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6 relative group">
+            <button 
+              onClick={() => handleRemoveSlide(slide.id)}
+              className="absolute top-4 right-4 p-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Type</label>
+                  <select 
+                    value={slide.type} 
+                    onChange={(e) => handleSlideChange(slide.id, "type", e.target.value)}
+                    className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200"
+                  >
+                    <option value="image">Image</option>
+                    <option value="video">Video</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Media URL</label>
+                  <div className="mt-1 flex gap-2">
+                    <input 
+                      type="text" 
+                      value={slide.url} 
+                      onChange={(e) => handleSlideChange(slide.id, "url", e.target.value)}
+                      className="flex-1 rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200"
+                      placeholder="https://..."
+                    />
+                    <FileUpload 
+                      path="slider" 
+                      accept={slide.type === "video" ? "video/*" : "image/*"}
+                      onUpload={(url) => handleSlideChange(slide.id, "url", url)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Title</label>
+                <input 
+                  type="text" 
+                  value={slide.title} 
+                  onChange={(e) => handleSlideChange(slide.id, "title", e.target.value)}
+                  className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Subtitle</label>
+                <textarea 
+                  value={slide.subtitle} 
+                  onChange={(e) => handleSlideChange(slide.id, "subtitle", e.target.value)}
+                  rows={2}
+                  className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Button Text</label>
+                  <input 
+                    type="text" 
+                    value={slide.buttonText} 
+                    onChange={(e) => handleSlideChange(slide.id, "buttonText", e.target.value)}
+                    className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Button Link</label>
+                  <input 
+                    type="text" 
+                    value={slide.buttonLink} 
+                    onChange={(e) => handleSlideChange(slide.id, "buttonLink", e.target.value)}
+                    className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminTheme({ settings, onUpdate }: { settings: any; onUpdate: (s: any) => Promise<void> }) {
+  const [theme, setTheme] = useState(settings.theme || {
+    header: { bgColor: "#ffffff", textColor: "#111827", height: "64px", isSticky: true },
+    body: { bgColor: "#f9fafb", textColor: "#111827" },
+    footer: { bgColor: "#ffffff", textColor: "#111827", borderColor: "#f3f4f6" }
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleThemeChange = (section: string, field: string, value: any) => {
+    setTheme({
+      ...theme,
+      [section]: {
+        ...theme[section as keyof typeof theme],
+        [field]: value
+      }
+    });
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdate({ ...settings, theme });
+      console.log("Theme settings saved!");
+    } catch (error) {
+      console.error("Error saving theme settings:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-gray-900">Theme Customization</h1>
+          <p className="mt-2 text-lg text-gray-600">Customize colors and layout for header, body, and footer.</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 disabled:opacity-50"
+        >
+          <Save className="h-5 w-5" />
+          {isSaving ? "Saving..." : "Save Changes"}
+        </button>
+      </header>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Header Theme */}
+        <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Menu className="h-5 w-5 text-indigo-600" />
+            Header
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700">Background Color</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input 
+                  type="color" 
+                  value={theme.header.bgColor} 
+                  onChange={(e) => handleThemeChange("header", "bgColor", e.target.value)}
+                  className="h-10 w-10 rounded-lg border-0 bg-transparent p-0 cursor-pointer" 
+                />
+                <input 
+                  type="text" 
+                  value={theme.header.bgColor} 
+                  onChange={(e) => handleThemeChange("header", "bgColor", e.target.value)}
+                  className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200" 
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700">Text Color</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input 
+                  type="color" 
+                  value={theme.header.textColor} 
+                  onChange={(e) => handleThemeChange("header", "textColor", e.target.value)}
+                  className="h-10 w-10 rounded-lg border-0 bg-transparent p-0 cursor-pointer" 
+                />
+                <input 
+                  type="text" 
+                  value={theme.header.textColor} 
+                  onChange={(e) => handleThemeChange("header", "textColor", e.target.value)}
+                  className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200" 
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700">Height</label>
+              <input 
+                type="text" 
+                value={theme.header.height} 
+                onChange={(e) => handleThemeChange("header", "height", e.target.value)}
+                className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200"
+                placeholder="64px"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <input 
+                type="checkbox" 
+                checked={theme.header.isSticky} 
+                onChange={(e) => handleThemeChange("header", "isSticky", e.target.checked)}
+                className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <label className="text-sm font-bold text-gray-700">Sticky Header</label>
+            </div>
+          </div>
+        </div>
+
+        {/* Body Theme */}
+        <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Layout className="h-5 w-5 text-indigo-600" />
+            Body
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700">Background Color</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input 
+                  type="color" 
+                  value={theme.body.bgColor} 
+                  onChange={(e) => handleThemeChange("body", "bgColor", e.target.value)}
+                  className="h-10 w-10 rounded-lg border-0 bg-transparent p-0 cursor-pointer" 
+                />
+                <input 
+                  type="text" 
+                  value={theme.body.bgColor} 
+                  onChange={(e) => handleThemeChange("body", "bgColor", e.target.value)}
+                  className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200" 
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700">Text Color</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input 
+                  type="color" 
+                  value={theme.body.textColor} 
+                  onChange={(e) => handleThemeChange("body", "textColor", e.target.value)}
+                  className="h-10 w-10 rounded-lg border-0 bg-transparent p-0 cursor-pointer" 
+                />
+                <input 
+                  type="text" 
+                  value={theme.body.textColor} 
+                  onChange={(e) => handleThemeChange("body", "textColor", e.target.value)}
+                  className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200" 
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Theme */}
+        <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100 space-y-6">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-indigo-600" />
+            Footer
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700">Background Color</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input 
+                  type="color" 
+                  value={theme.footer.bgColor} 
+                  onChange={(e) => handleThemeChange("footer", "bgColor", e.target.value)}
+                  className="h-10 w-10 rounded-lg border-0 bg-transparent p-0 cursor-pointer" 
+                />
+                <input 
+                  type="text" 
+                  value={theme.footer.bgColor} 
+                  onChange={(e) => handleThemeChange("footer", "bgColor", e.target.value)}
+                  className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200" 
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700">Text Color</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input 
+                  type="color" 
+                  value={theme.footer.textColor} 
+                  onChange={(e) => handleThemeChange("footer", "textColor", e.target.value)}
+                  className="h-10 w-10 rounded-lg border-0 bg-transparent p-0 cursor-pointer" 
+                />
+                <input 
+                  type="text" 
+                  value={theme.footer.textColor} 
+                  onChange={(e) => handleThemeChange("footer", "textColor", e.target.value)}
+                  className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200" 
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700">Border Color</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input 
+                  type="color" 
+                  value={theme.footer.borderColor} 
+                  onChange={(e) => handleThemeChange("footer", "borderColor", e.target.value)}
+                  className="h-10 w-10 rounded-lg border-0 bg-transparent p-0 cursor-pointer" 
+                />
+                <input 
+                  type="text" 
+                  value={theme.footer.borderColor} 
+                  onChange={(e) => handleThemeChange("footer", "borderColor", e.target.value)}
+                  className="flex-1 rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200" 
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1050,6 +1698,10 @@ function AdminCourses() {
   const [editingCourse, setEditingCourse] = useState<any | null>(null);
   const [managingCourse, setManagingCourse] = useState<any | null>(null);
 
+  // Form states for controlled inputs with upload
+  const [thumbnail, setThumbnail] = useState("");
+  const [instructorAvatar, setInstructorAvatar] = useState("");
+
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "courses"), (snapshot) => {
       setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -1057,13 +1709,25 @@ function AdminCourses() {
     return () => unsub();
   }, []);
 
+  useEffect(() => {
+    if (editingCourse) {
+      setThumbnail(editingCourse.thumbnail || "");
+      setInstructorAvatar(editingCourse.instructorAvatar || "");
+    } else {
+      setThumbnail("");
+      setInstructorAvatar("");
+    }
+  }, [editingCourse, showAddCourse]);
+
   const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
     const courseData = {
       title: formData.get("title") as string,
       price: Number(formData.get("price")),
-      thumbnail: formData.get("thumbnail") as string,
+      thumbnail,
+      instructorName: formData.get("instructorName") as string,
+      instructorAvatar,
       description: formData.get("description") as string,
       updatedAt: serverTimestamp(),
     };
@@ -1142,7 +1806,42 @@ function AdminCourses() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700">Thumbnail URL</label>
-                <input name="thumbnail" defaultValue={editingCourse?.thumbnail} type="text" required className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" placeholder="https://..." />
+                <div className="mt-1 flex gap-2">
+                  <input 
+                    name="thumbnail" 
+                    value={thumbnail} 
+                    onChange={(e) => setThumbnail(e.target.value)}
+                    type="text" 
+                    required 
+                    className="flex-1 rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" 
+                    placeholder="https://..." 
+                  />
+                  <FileUpload 
+                    path="courses/thumbnails" 
+                    onUpload={(url) => setThumbnail(url)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Instructor Name</label>
+                <input name="instructorName" defaultValue={editingCourse?.instructorName} type="text" required className="mt-1 block w-full rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" placeholder="Rana Sir" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Instructor Avatar URL</label>
+                <div className="mt-1 flex gap-2">
+                  <input 
+                    name="instructorAvatar" 
+                    value={instructorAvatar} 
+                    onChange={(e) => setInstructorAvatar(e.target.value)}
+                    type="text" 
+                    className="flex-1 rounded-xl border-0 bg-gray-50 py-3 px-4 ring-1 ring-gray-200" 
+                    placeholder="https://..." 
+                  />
+                  <FileUpload 
+                    path="instructors/avatars" 
+                    onUpload={(url) => setInstructorAvatar(url)}
+                  />
+                </div>
               </div>
             </div>
             <div className="space-y-4">
@@ -1243,11 +1942,10 @@ function ManageVideos({ course, onBack }: { course: any; onBack: () => void }) {
       await updateDoc(doc(db, "courses", course.id), {
         chapters: chapters
       });
-      alert("Course content updated successfully!");
+      console.log("Course content updated successfully!");
       onBack();
     } catch (error) {
       console.error("Error saving video management changes:", error);
-      alert("Failed to save changes.");
     } finally {
       setIsSaving(false);
     }
@@ -1361,32 +2059,81 @@ function ManageVideos({ course, onBack }: { course: any; onBack: () => void }) {
 function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; courseId: string; onUpdate: (u: any) => void; onRemove: () => void }) {
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const [uploadTask, setUploadTask] = useState<any | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setError(null);
     setIsUploading(true);
-    const storageRef = ref(storage, `courses/${courseId}/videos/${Date.now()}_${file.name}`);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+    setProgress(0);
 
-    uploadTask.on('state_changed', 
-      (snapshot) => {
-        const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setProgress(p);
-      },
-      (error) => {
-        console.error("Upload error:", error);
-        setIsUploading(false);
-        alert("Upload failed.");
-      },
-      async () => {
-        const url = await getDownloadURL(uploadTask.snapshot.ref);
-        onUpdate({ videoUrl: url });
-        setIsUploading(false);
-        setProgress(0);
-      }
-    );
+    try {
+      // Sanitize filename to avoid issues with special characters
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+      const storageRef = ref(storage, `courses/${courseId}/videos/${Date.now()}_${sanitizedName}`);
+      
+      console.log("Starting upload for:", file.name, "Size:", file.size, "Type:", file.type);
+      
+      const task = uploadBytesResumable(storageRef, file);
+      setUploadTask(task);
+
+      task.on('state_changed', 
+        (snapshot) => {
+          const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          console.log(`Upload progress: ${p}%`, snapshot.state);
+          setProgress(p);
+        },
+        (err: any) => {
+          console.error("Upload error object:", err);
+          let message = `Upload failed (${err.code || 'unknown'}): ${err.message}`;
+          
+          if (err.code === 'storage/unauthorized') {
+            message = "Upload failed: Unauthorized. Please ensure Firebase Storage rules allow authenticated uploads.";
+          } else if (err.code === 'storage/canceled') {
+            message = "Upload canceled.";
+          } else if (err.code === 'storage/retry-limit-exceeded') {
+            message = "Upload failed: Retry limit exceeded. Please check your connection.";
+          }
+          
+          setError(message);
+          setIsUploading(false);
+          setUploadTask(null);
+        },
+        async () => {
+          try {
+            console.log("Upload complete, getting download URL...");
+            const url = await getDownloadURL(task.snapshot.ref);
+            onUpdate({ videoUrl: url });
+            setIsUploading(false);
+            setProgress(0);
+            setUploadTask(null);
+          } catch (err: any) {
+            console.error("Error getting download URL:", err);
+            setError(`Upload succeeded but failed to get video URL: ${err.message}`);
+            setIsUploading(false);
+            setUploadTask(null);
+          }
+        }
+      );
+    } catch (err: any) {
+      console.error("Upload setup error:", err);
+      setError(`Setup failed: ${err.message}`);
+      setIsUploading(false);
+      setUploadTask(null);
+    }
+  };
+
+  const cancelUpload = () => {
+    if (uploadTask) {
+      uploadTask.cancel();
+      setIsUploading(false);
+      setUploadTask(null);
+      setError("Upload canceled by user.");
+    }
   };
 
   return (
@@ -1413,12 +2160,17 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
             className="w-full bg-gray-50 rounded-lg py-2 px-3 text-xs text-gray-500 focus:outline-none ring-1 ring-gray-100"
             placeholder="Video URL or Upload"
           />
+          {error && (
+            <div className="absolute top-full left-0 mt-1 text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md z-10 shadow-sm">
+              {error}
+            </div>
+          )}
         </div>
         
         <div className="relative">
           <input 
             type="file" 
-            accept="video/*" 
+            accept="video/*, .mkv, .avi, .mov, .flv, .wmv, .mp4, .webm" 
             onChange={handleFileUpload}
             className="absolute inset-0 opacity-0 cursor-pointer z-10"
             disabled={isUploading}
@@ -1456,7 +2208,7 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
 
       {isUploading && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/80 backdrop-blur-sm">
-          <div className="w-48 space-y-2">
+          <div className="w-48 space-y-4">
             <div className="flex justify-between text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
               <span>Uploading Video...</span>
               <span>{Math.round(progress)}%</span>
@@ -1464,6 +2216,12 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
             <div className="h-1 w-full rounded-full bg-gray-100 overflow-hidden">
               <div className="h-1 rounded-full bg-indigo-600 transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
+            <button 
+              onClick={cancelUpload}
+              className="w-full rounded-lg bg-red-50 py-2 text-[10px] font-bold text-red-600 hover:bg-red-100 transition-all"
+            >
+              Cancel Upload
+            </button>
           </div>
         </div>
       )}

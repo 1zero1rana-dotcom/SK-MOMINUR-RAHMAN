@@ -4,11 +4,17 @@ import Footer from "./Footer";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation } from "react-router-dom";
 
+import { useSettings } from "../contexts/SettingsContext";
+
 export default function Layout() {
   const location = useLocation();
+  const { settings } = useSettings();
 
   return (
-    <div className="flex min-h-screen flex-col font-sans selection:bg-indigo-100 selection:text-indigo-600">
+    <div 
+      className="flex min-h-screen flex-col font-sans selection:bg-indigo-100 selection:text-indigo-600"
+      style={{ backgroundColor: settings.theme.body.bgColor, color: settings.theme.body.textColor }}
+    >
       <Navbar />
       <AnimatePresence mode="wait">
         <motion.div

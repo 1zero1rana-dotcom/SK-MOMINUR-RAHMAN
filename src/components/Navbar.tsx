@@ -38,8 +38,19 @@ export default function Navbar() {
   if (loading) return null; // Or a minimal skeleton
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <nav 
+      className={cn(
+        settings.theme.header.isSticky ? "sticky top-0" : "relative",
+        "z-50 w-full border-b backdrop-blur-md transition-all"
+      )}
+      style={{ 
+        backgroundColor: `${settings.theme.header.bgColor}CC`, // Adding some transparency for blur
+        color: settings.theme.header.textColor,
+        height: settings.theme.header.height,
+        borderColor: `${settings.theme.header.textColor}1A` // 10% opacity border
+      }}
+    >
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-2">
           {settings.logoUrl ? (
             <img src={settings.logoUrl} alt={settings.siteName} className="h-10 w-auto object-contain" />
@@ -48,7 +59,7 @@ export default function Navbar() {
               <BookOpen className="h-6 w-6" />
             </div>
           )}
-          <span className="text-xl font-bold tracking-tight text-gray-900">
+          <span className="text-xl font-bold tracking-tight" style={{ color: settings.theme.header.textColor }}>
             {settings.siteName.split(' ')[0]} <span className="text-primary">{settings.siteName.split(' ').slice(1).join(' ')}</span>
           </span>
         </Link>
@@ -57,30 +68,41 @@ export default function Navbar() {
         <div className="hidden md:flex md:items-center md:gap-8">
           {settings.headerLinks?.length > 0 ? (
             settings.headerLinks.map((link: any, i: number) => (
-              <Link key={i} to={link.path} className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">{link.name}</Link>
+              <Link 
+                key={i} 
+                to={link.path} 
+                className="text-sm font-medium transition-colors hover:text-primary"
+                style={{ color: settings.theme.header.textColor }}
+              >
+                {link.name}
+              </Link>
             ))
           ) : (
             <>
-              <Link to="/courses" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">Courses</Link>
-              <Link to="/about" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">About</Link>
-              <Link to="/community" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">Community</Link>
+              <Link to="/courses" className="text-sm font-medium transition-colors hover:text-primary" style={{ color: settings.theme.header.textColor }}>Courses</Link>
+              <Link to="/about" className="text-sm font-medium transition-colors hover:text-primary" style={{ color: settings.theme.header.textColor }}>About</Link>
+              <Link to="/community" className="text-sm font-medium transition-colors hover:text-primary" style={{ color: settings.theme.header.textColor }}>Community</Link>
             </>
           )}
-          <div className="h-4 w-[1px] bg-gray-200" />
+          <div className="h-4 w-[1px]" style={{ backgroundColor: `${settings.theme.header.textColor}33` }} />
           
           {user ? (
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 rounded-full bg-gray-50 p-1.5 pr-3 transition-all hover:bg-gray-100 ring-1 ring-gray-200"
+                className="flex items-center gap-2 rounded-full p-1.5 pr-3 transition-all ring-1"
+                style={{ 
+                  backgroundColor: `${settings.theme.header.textColor}0D`,
+                  borderColor: `${settings.theme.header.textColor}1A`
+                }}
               >
                 <img
                   src={user.photoURL || `https://i.pravatar.cc/100?u=${user.uid}`}
                   alt="Profile"
                   className="h-8 w-8 rounded-full border border-white shadow-sm"
                 />
-                <span className="text-sm font-bold text-gray-700">{user.displayName?.split(' ')[0] || 'Student'}</span>
-                <ChevronDown className={cn("h-4 w-4 text-gray-400 transition-transform", isProfileOpen && "rotate-180")} />
+                <span className="text-sm font-bold" style={{ color: settings.theme.header.textColor }}>{user.displayName?.split(' ')[0] || 'Student'}</span>
+                <ChevronDown className={cn("h-4 w-4 transition-transform", isProfileOpen && "rotate-180")} style={{ color: `${settings.theme.header.textColor}66` }} />
               </button>
 
               {isProfileOpen && (

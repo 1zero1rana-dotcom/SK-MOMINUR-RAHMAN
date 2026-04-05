@@ -168,6 +168,8 @@ export default function CoursePlayer() {
                 <video 
                   src={activeLesson.videoUrl} 
                   controls 
+                  controlsList="nodownload"
+                  onContextMenu={(e) => e.preventDefault()}
                   className="h-full w-full"
                   poster={course.thumbnail}
                 />

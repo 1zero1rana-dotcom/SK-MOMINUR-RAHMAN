@@ -6,7 +6,7 @@ export const HSC_ICT_COURSES: Course[] = [
     title: "HSC ICT Full Course (Academic)",
     description: "Master all 6 chapters of HSC ICT with interactive lessons, C programming practice, and HTML web design.",
     thumbnail: "https://picsum.photos/seed/ict1/800/600",
-    instructor: "Redwan Master",
+    instructor: "Rana Sir",
     price: 1500,
     stats: {
       students: 12500,

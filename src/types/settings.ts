@@ -21,6 +21,7 @@ export interface SiteSettings {
   footerText: string;
   contactEmail: string;
   contactPhone: string;
+  contactAddress: string;
   facebookUrl: string;
   youtubeUrl: string;
   logoUrl?: string;
@@ -31,12 +32,19 @@ export interface SiteSettings {
   footerLinks: { name: string; path: string }[];
   stats: { label: string; value: string; icon: string; color: string }[];
   testimonials: { name: string; role: string; content: string; avatar: string; rating: number }[];
+  slides: { id: string; type: "image" | "video"; url: string; title?: string; subtitle?: string; buttonText?: string; buttonLink?: string }[];
+  theme: {
+    header: { bgColor: string; textColor: string; height: string; isSticky: boolean };
+    body: { bgColor: string; textColor: string };
+    footer: { bgColor: string; textColor: string; borderColor: string };
+  };
+  homeSections: { id: string; type: "slider" | "hero" | "categories" | "courses" | "cta" | "testimonials" | "custom_html"; visible: boolean; order: number; title?: string; subtitle?: string; content?: string }[];
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
   siteName: "ICT Masterclass",
-  siteDescription: "Master HSC ICT with Redwan's Method",
-  heroTitle: "Master HSC ICT with Redwan's Method",
+  siteDescription: "Master HSC ICT with Rana Sir's Method",
+  heroTitle: "Master HSC ICT with Rana Sir's Method",
   heroSubtitle: "Join the most comprehensive online ICT learning platform in Bangladesh. High-quality content, expert support, and proven results.",
   heroBadge: "Admission Batch 2026 is Open!",
   heroFeatures: ["Expert Instructors", "Interactive Quizzes", "Lifetime Access"],
@@ -56,6 +64,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   footerText: "© 2026 ICT Masterclass. All rights reserved.",
   contactEmail: "support@ictmasterclass.com",
   contactPhone: "+880 1XXX XXXXXX",
+  contactAddress: "Dhaka, Bangladesh",
   facebookUrl: "https://facebook.com",
   youtubeUrl: "https://youtube.com",
   logoUrl: "",
@@ -82,7 +91,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     {
       name: "Tanvir Ahmed",
       role: "HSC 2025 Batch",
-      content: "Redwan Master's ICT course is a game-changer. The way he explains C programming is just amazing. I used to be afraid of coding, but now I love it!",
+      content: "Rana Sir's ICT course is a game-changer. The way he explains C programming is just amazing. I used to be afraid of coding, but now I love it!",
       avatar: "https://i.pravatar.cc/150?u=tanvir",
       rating: 5,
     },
@@ -100,5 +109,29 @@ export const DEFAULT_SETTINGS: SiteSettings = {
       avatar: "https://i.pravatar.cc/150?u=fahim",
       rating: 5,
     },
+  ],
+  slides: [
+    {
+      id: "1",
+      type: "image",
+      url: "https://picsum.photos/seed/slide1/1920/1080",
+      title: "Master HSC ICT with Rana Sir",
+      subtitle: "The most comprehensive online platform for ICT in Bangladesh.",
+      buttonText: "Enroll Now",
+      buttonLink: "/courses"
+    }
+  ],
+  theme: {
+    header: { bgColor: "#ffffff", textColor: "#111827", height: "64px", isSticky: true },
+    body: { bgColor: "#f9fafb", textColor: "#111827" },
+    footer: { bgColor: "#ffffff", textColor: "#111827", borderColor: "#f3f4f6" }
+  },
+  homeSections: [
+    { id: "s1", type: "slider", visible: true, order: 0 },
+    { id: "s2", type: "hero", visible: true, order: 1 },
+    { id: "s3", type: "categories", visible: true, order: 2 },
+    { id: "s4", type: "courses", visible: true, order: 3 },
+    { id: "s5", type: "cta", visible: true, order: 4 },
+    { id: "s6", type: "testimonials", visible: true, order: 5 },
   ],
 };

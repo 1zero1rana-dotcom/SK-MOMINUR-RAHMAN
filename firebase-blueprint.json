@@ -24,7 +24,8 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "thumbnail": { "type": "string" },
-        "instructor": { "type": "string" },
+        "instructorName": { "type": "string" },
+        "instructorAvatar": { "type": "string" },
         "price": { "type": "number" },
         "chapters": {
           "type": "array",
@@ -118,7 +119,10 @@
         "footerLinks": { "type": "array" },
         "language": { "type": "string" },
         "stats": { "type": "array" },
-        "testimonials": { "type": "array" }
+        "testimonials": { "type": "array" },
+        "slides": { "type": "array" },
+        "theme": { "type": "object" },
+        "homeSections": { "type": "array" }
       }
     }
   },

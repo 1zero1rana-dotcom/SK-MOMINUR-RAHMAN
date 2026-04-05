@@ -92,13 +92,13 @@ export default function CourseDetails() {
               </div>
               <div className="flex items-center gap-4">
                 <img
-                  src="https://i.pravatar.cc/150?u=redwan"
-                  alt="Redwan Master"
+                  src={course.instructorAvatar || "https://i.pravatar.cc/150?u=rana"}
+                  alt={course.instructorName || "Instructor"}
                   className="h-12 w-12 rounded-full border-2 border-indigo-500"
                 />
                 <div>
                   <p className="text-sm font-bold text-white">Instructor</p>
-                  <p className="text-lg font-black text-indigo-300">Redwan Master</p>
+                  <p className="text-lg font-black text-indigo-300">{course.instructorName || "Rana Sir"}</p>
                 </div>
               </div>
             </div>
