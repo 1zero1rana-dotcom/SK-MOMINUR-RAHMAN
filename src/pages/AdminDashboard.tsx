@@ -54,7 +54,7 @@ import {
   getDoc
 } from "firebase/firestore";
 import { db, auth, storage } from "../firebase";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, uploadString } from "firebase/storage";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../contexts/AuthContext";
@@ -96,31 +96,25 @@ function FileUpload({
     setProgress(0);
 
     try {
+      console.log("FileUpload: Starting simple upload to path:", path, "File:", file.name, "Size:", file.size);
+      console.log("Current Auth User:", auth.currentUser?.uid || "Not Logged In");
+      
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
       const storageRef = ref(storage, `${path}/${Date.now()}_${sanitizedName}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on('state_changed', 
-        (snapshot) => {
-          const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setProgress(p);
-        },
-        (error) => {
-          console.error("Upload error:", error);
-          setIsUploading(false);
-          alert("Upload failed: " + error.message);
-        },
-        async () => {
-          const url = await getDownloadURL(uploadTask.snapshot.ref);
-          onUpload(url);
-          setIsUploading(false);
-          setProgress(0);
-        }
-      );
-    } catch (error: any) {
-      console.error("Upload setup error:", error);
+      
+      // Use uploadBytes for better reliability in this environment
+      const result = await uploadBytes(storageRef, file);
+      console.log("FileUpload: Simple upload success! Getting download URL...");
+      
+      const url = await getDownloadURL(result.ref);
+      console.log("FileUpload success! URL:", url);
+      onUpload(url);
       setIsUploading(false);
-      alert("Upload setup failed: " + error.message);
+      setProgress(100);
+    } catch (error: any) {
+      console.error("FileUpload error:", error.code, error.message);
+      setIsUploading(false);
+      alert(`Upload failed (${error.code}): ${error.message}. Please check your internet connection or try a smaller file.`);
     }
   };
 
@@ -143,7 +137,7 @@ function FileUpload({
         {isUploading ? (
           <>
             <div className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-            {Math.round(progress)}%
+            {progress > 0 ? `${Math.round(progress)}%` : "Uploading..."}
           </>
         ) : (
           <>
@@ -331,17 +325,45 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
   const [testStatus, setTestStatus] = useState<string | null>(null);
 
   const testStorage = async () => {
-    setTestStatus("Testing...");
+    setTestStatus("Testing Storage (Simple Upload)... Attempting to write to 'test/' folder.");
     try {
       const testRef = ref(storage, `test/connection_test_${Date.now()}.txt`);
-      const blob = new Blob(["Storage connection test successful!"], { type: "text/plain" });
-      await uploadBytesResumable(testRef, blob);
+      const testContent = "Storage connection test successful!";
+      
+      console.log("Testing Simple Upload to:", testRef.fullPath);
+      console.log("Bucket:", storage.app.options.storageBucket);
+      console.log("Current Auth State:", auth.currentUser ? `Logged in as ${auth.currentUser.uid}` : "Not logged in");
+      
+      // CORS Diagnostic: Try a simple fetch to the storage API
+      try {
+        const bucket = storage.app.options.storageBucket;
+        console.log("Running CORS diagnostic fetch to:", `https://firebasestorage.googleapis.com/v0/b/${bucket}/o`);
+        const fetchResponse = await fetch(`https://firebasestorage.googleapis.com/v0/b/${bucket}/o`, { method: 'GET' });
+        console.log("CORS Diagnostic: Fetch status:", fetchResponse.status);
+      } catch (fetchErr) {
+        console.error("CORS Diagnostic: Fetch failed (This confirms a CORS or Network issue):", fetchErr);
+      }
+      
+      // Add a timeout to the upload test
+      const uploadPromise = uploadString(testRef, testContent);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Upload timed out after 15 seconds. This usually indicates a CORS or network issue.")), 15000)
+      );
+
+      await Promise.race([uploadPromise, timeoutPromise]);
+      
       const url = await getDownloadURL(testRef);
       setTestStatus(`Success! Storage is working. Test file: ${url}`);
       console.log("Storage test success:", url);
     } catch (err: any) {
       console.error("Storage test failed:", err);
-      setTestStatus(`Failed: ${err.message} (Code: ${err.code})`);
+      let msg = err.message;
+      if (err.code === 'storage/unauthorized') msg = "Unauthorized. Check your storage.rules.";
+      if (err.code === 'storage/retry-limit-exceeded') msg = "Network error or CORS issue.";
+      setTestStatus(`Storage test failed: ${msg}`);
+      
+      // Diagnostic hint
+      console.log("Diagnostic: If this hangs at 0% or times out, check if your Firebase project has Storage enabled and if CORS is configured for the bucket.");
     }
   };
 
@@ -464,44 +486,39 @@ function AdminSettings({ settings, onUpdate }: { settings: any; onUpdate: (s: an
 
               <div>
                 <label className="block text-sm font-bold text-gray-700">Logo</label>
-                <div className="mt-2 flex items-center gap-4">
-                  {settings.logoUrl && (
-                    <img src={settings.logoUrl} alt="Logo" className="h-12 w-12 rounded-lg object-contain ring-1 ring-gray-200 p-1" />
-                  )}
-                  <div className="flex-1 flex gap-2">
-                    <input 
-                      name="logoUrl" 
-                      value={settings.logoUrl} 
-                      type="hidden" 
-                    />
-                    <FileUpload 
-                      path="site" 
-                      label="Upload Logo"
-                      onUpload={async (url) => {
-                        await onUpdate({ ...settings, logoUrl: url });
-                      }}
-                    />
+                <div className="mt-2 space-y-3">
+                  <div className="flex items-center gap-4">
+                    {settings.logoUrl && (
+                      <img src={settings.logoUrl} alt="Logo" className="h-12 w-12 rounded-lg object-contain ring-1 ring-gray-200 p-1 bg-white" />
+                    )}
+                    <div className="flex-1">
+                      <input 
+                        name="logoUrl" 
+                        value={settings.logoUrl} 
+                        onChange={(e) => onUpdate({ ...settings, logoUrl: e.target.value })}
+                        type="text" 
+                        placeholder="Logo URL (e.g. from ImgBB or PostImages)"
+                        className="w-full rounded-xl border-0 bg-gray-50 py-2 px-3 text-xs ring-1 ring-gray-200 focus:ring-indigo-600 transition-all"
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={testStorage}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-xl transition-all"
-                >
-                  <Video className="h-4 w-4" />
-                  Test Storage Connection
-                </button>
-                {testStatus && (
-                  <p className={cn(
-                    "mt-2 text-[10px] font-bold",
-                    testStatus.startsWith("Success") ? "text-green-600" : "text-red-600"
-                  )}>
-                    {testStatus}
+                  <div className="flex items-center gap-2">
+                    <div className="h-px flex-1 bg-gray-100" />
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">or</span>
+                    <div className="h-px flex-1 bg-gray-100" />
+                  </div>
+                  <FileUpload 
+                    path="site" 
+                    label="Upload Logo"
+                    className="w-full"
+                    onUpload={async (url) => {
+                      await onUpdate({ ...settings, logoUrl: url });
+                    }}
+                  />
+                  <p className="text-[10px] text-gray-400 italic">
+                    Tip: If upload is stuck, host your image on <a href="https://imgbb.com/" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">ImgBB</a> and paste the direct link above.
                   </p>
-                )}
+                </div>
               </div>
             </div>
           </div>
@@ -2061,8 +2078,6 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const [uploadTask, setUploadTask] = useState<any | null>(null);
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2076,63 +2091,37 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
       const storageRef = ref(storage, `courses/${courseId}/videos/${Date.now()}_${sanitizedName}`);
       
-      console.log("Starting upload for:", file.name, "Size:", file.size, "Type:", file.type);
+      console.log("Starting simple upload for:", file.name, "Size:", file.size, "Type:", file.type);
+      console.log("Current Auth User:", auth.currentUser?.uid || "Not Logged In");
       
-      const task = uploadBytesResumable(storageRef, file);
-      setUploadTask(task);
-
-      task.on('state_changed', 
-        (snapshot) => {
-          const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log(`Upload progress: ${p}%`, snapshot.state);
-          setProgress(p);
-        },
-        (err: any) => {
-          console.error("Upload error object:", err);
-          let message = `Upload failed (${err.code || 'unknown'}): ${err.message}`;
-          
-          if (err.code === 'storage/unauthorized') {
-            message = "Upload failed: Unauthorized. Please ensure Firebase Storage rules allow authenticated uploads.";
-          } else if (err.code === 'storage/canceled') {
-            message = "Upload canceled.";
-          } else if (err.code === 'storage/retry-limit-exceeded') {
-            message = "Upload failed: Retry limit exceeded. Please check your connection.";
-          }
-          
-          setError(message);
-          setIsUploading(false);
-          setUploadTask(null);
-        },
-        async () => {
-          try {
-            console.log("Upload complete, getting download URL...");
-            const url = await getDownloadURL(task.snapshot.ref);
-            onUpdate({ videoUrl: url });
-            setIsUploading(false);
-            setProgress(0);
-            setUploadTask(null);
-          } catch (err: any) {
-            console.error("Error getting download URL:", err);
-            setError(`Upload succeeded but failed to get video URL: ${err.message}`);
-            setIsUploading(false);
-            setUploadTask(null);
-          }
-        }
+      // Use uploadBytes for better reliability
+      const uploadPromise = uploadBytes(storageRef, file);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Upload timed out after 30 seconds. Large files may take longer, but this usually indicates a connection issue.")), 30000)
       );
-    } catch (err: any) {
-      console.error("Upload setup error:", err);
-      setError(`Setup failed: ${err.message}`);
-      setIsUploading(false);
-      setUploadTask(null);
-    }
-  };
 
-  const cancelUpload = () => {
-    if (uploadTask) {
-      uploadTask.cancel();
+      const result = await Promise.race([uploadPromise, timeoutPromise]) as any;
+      console.log("LessonItem: Simple upload success! Getting download URL...");
+      
+      const url = await getDownloadURL(result.ref);
+      console.log("LessonItem success! URL:", url);
+      onUpdate({ videoUrl: url });
       setIsUploading(false);
-      setUploadTask(null);
-      setError("Upload canceled by user.");
+      setProgress(100);
+    } catch (err: any) {
+      console.error("Upload error object:", err);
+      let message = `Upload failed (${err.code || 'unknown'}): ${err.message}`;
+      
+      if (err.code === 'storage/unauthorized') {
+        message = "Upload failed: Unauthorized. Please ensure Firebase Storage rules allow authenticated uploads.";
+      } else if (err.code === 'storage/canceled') {
+        message = "Upload canceled.";
+      } else if (err.code === 'storage/retry-limit-exceeded') {
+        message = "Upload failed: Retry limit exceeded. Please check your connection.";
+      }
+      
+      setError(message);
+      setIsUploading(false);
     }
   };
 
@@ -2216,12 +2205,6 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
             <div className="h-1 w-full rounded-full bg-gray-100 overflow-hidden">
               <div className="h-1 rounded-full bg-indigo-600 transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
-            <button 
-              onClick={cancelUpload}
-              className="w-full rounded-lg bg-red-50 py-2 text-[10px] font-bold text-red-600 hover:bg-red-100 transition-all"
-            >
-              Cancel Upload
-            </button>
           </div>
         </div>
       )}
