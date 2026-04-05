@@ -55,21 +55,22 @@ export default function CoursePlayer() {
       try {
         const isAdmin = role === "admin";
 
-        if (!isAdmin) {
-          // Check enrollment
-          const q = query(
-            collection(db, "enrollments"),
-            where("userId", "==", user.uid),
-            where("courseId", "==", id),
-            where("status", "==", "active")
-          );
-          const enrollmentSnap = await getDocs(q);
-          
-          if (enrollmentSnap.empty) {
+        // Check enrollment for everyone (including admins so they can test progress)
+        const q = query(
+          collection(db, "enrollments"),
+          where("userId", "==", user.uid),
+          where("courseId", "==", id)
+        );
+        const enrollmentSnap = await getDocs(q);
+        
+        if (enrollmentSnap.empty) {
+          if (!isAdmin) {
             navigate(`/course/${id}`);
             return;
           }
-
+          // Admins don't need enrollment to view, but we'll try to find one if it exists
+          setEnrollment(null);
+        } else {
           const enrollmentDoc = enrollmentSnap.docs[0];
           setEnrollment({ id: enrollmentDoc.id, ...enrollmentDoc.data() });
         }
@@ -107,9 +108,31 @@ export default function CoursePlayer() {
   };
 
   const markAsComplete = async (lessonId: string) => {
-    if (!enrollment || !course || isMarkingComplete) return;
+    if (!course || isMarkingComplete) return;
     
-    const completedLessons = enrollment.completedLessons || [];
+    // If no enrollment exists (e.g. for an admin who hasn't "enrolled"), create one
+    let currentEnrollment = enrollment;
+    if (!currentEnrollment) {
+      try {
+        const { addDoc, collection } = await import("firebase/firestore");
+        const newEnrollment = {
+          userId: user?.uid,
+          courseId: id,
+          enrolledAt: serverTimestamp(),
+          progress: 0,
+          status: "active",
+          completedLessons: []
+        };
+        const docRef = await addDoc(collection(db, "enrollments"), newEnrollment);
+        currentEnrollment = { id: docRef.id, ...newEnrollment };
+        setEnrollment(currentEnrollment);
+      } catch (error) {
+        console.error("Error creating enrollment for admin:", error);
+        return;
+      }
+    }
+
+    const completedLessons = currentEnrollment.completedLessons || [];
     if (completedLessons.includes(lessonId)) return;
 
     setIsMarkingComplete(true);
@@ -124,14 +147,14 @@ export default function CoursePlayer() {
 
       const progress = Math.round((newCompletedLessons.length / totalLessons) * 100);
 
-      await updateDoc(doc(db, "enrollments", enrollment.id), {
+      await updateDoc(doc(db, "enrollments", currentEnrollment.id), {
         completedLessons: newCompletedLessons,
         progress: progress,
         lastAccessed: serverTimestamp()
       });
 
       setEnrollment({
-        ...enrollment,
+        ...currentEnrollment,
         completedLessons: newCompletedLessons,
         progress: progress
       });
@@ -153,7 +176,7 @@ export default function CoursePlayer() {
     const ytRegex = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const ytMatch = url.match(ytRegex);
     if (ytMatch && ytMatch[2].length === 11) {
-      return `https://www.youtube.com/embed/${ytMatch[2]}`;
+      return `https://www.youtube.com/embed/${ytMatch[2]}?autoplay=0&rel=0`;
     }
 
     // Vimeo
@@ -169,6 +192,16 @@ export default function CoursePlayer() {
     }
 
     return url;
+  };
+
+  const isDirectVideo = (url: string) => {
+    if (!url) return false;
+    // Handle Firebase Storage URLs and other direct links
+    return url.toLowerCase().includes(".mp4") || 
+           url.toLowerCase().includes(".webm") || 
+           url.toLowerCase().includes(".ogg") ||
+           url.includes("firebasestorage.googleapis.com") ||
+           url.startsWith("blob:");
   };
 
   if (loading) {
@@ -221,17 +254,22 @@ export default function CoursePlayer() {
           {/* Video Player Section */}
           <div className="bg-black aspect-video w-full relative group">
             {activeLesson?.videoUrl ? (
-              activeLesson.videoUrl.match(/\.(mp4|webm|ogg)$/) ? (
+              isDirectVideo(activeLesson.videoUrl) ? (
                 <video 
+                  key={activeLesson.id}
                   src={activeLesson.videoUrl} 
                   controls 
                   controlsList="nodownload"
                   onContextMenu={(e) => e.preventDefault()}
+                  onEnded={() => markAsComplete(activeLesson.id)}
                   className="h-full w-full"
                   poster={course.thumbnail}
+                  autoPlay
+                  playsInline
                 />
               ) : (
                 <iframe
+                  key={activeLesson.id}
                   src={getEmbedUrl(activeLesson.videoUrl)}
                   className="h-full w-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
