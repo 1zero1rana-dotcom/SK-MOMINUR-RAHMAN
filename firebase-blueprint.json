@@ -124,6 +124,21 @@
         "theme": { "type": "object" },
         "homeSections": { "type": "array" }
       }
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A global notification for users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["course_update", "new_course", "system"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "courseId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "readBy": { "type": "array", "items": { "type": "string" }, "description": "List of user UIDs who have read this notification" }
+      },
+      "required": ["type", "title", "message", "createdAt"]
     }
   },
   "firestore": {
@@ -146,6 +161,10 @@
     "/settings/{docId}": {
       "schema": "SiteSettings",
       "description": "Global site settings"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Global notifications"
     }
   }
 }

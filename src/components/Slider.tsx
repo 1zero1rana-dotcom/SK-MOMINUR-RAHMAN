@@ -29,6 +29,49 @@ export default function Slider({ slides }: { slides: Slide[] }) {
   const next = () => setCurrent((prev) => (prev + 1) % slides.length);
   const prev = () => setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
 
+  const getEmbedUrl = (url: string) => {
+    if (!url) return "";
+    
+    // YouTube
+    const ytRegex = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const ytMatch = url.match(ytRegex);
+    if (ytMatch && ytMatch[2].length === 11) {
+      return `https://www.youtube.com/embed/${ytMatch[2]}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytMatch[2]}&rel=0&modestbranding=1`;
+    }
+
+    // Vimeo
+    const vimeoRegex = /(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/;
+    const vimeoMatch = url.match(vimeoRegex);
+    if (vimeoMatch) {
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}?background=1&autoplay=1&loop=1&byline=0&title=0&muted=1`;
+    }
+
+    // Google Drive
+    if (url.includes("drive.google.com")) {
+      const fileIdMatch = url.match(/\/file\/d\/([^\/]+)/) || url.match(/id=([^\&]+)/);
+      if (fileIdMatch) {
+        return `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
+      }
+    }
+
+    return url;
+  };
+
+  const isDirectVideo = (url: string) => {
+    if (!url) return false;
+    const lowerUrl = url.toLowerCase();
+    const directExtensions = [".mp4", ".webm", ".ogg", ".mov", ".m4v"];
+    if (directExtensions.some(ext => lowerUrl.includes(ext))) {
+      if (!lowerUrl.includes("youtube.com") && !lowerUrl.includes("youtu.be") && !lowerUrl.includes("vimeo.com")) {
+        return true;
+      }
+    }
+    if (lowerUrl.includes("firebasestorage.googleapis.com") && lowerUrl.includes("alt=media")) {
+      return true;
+    }
+    return false;
+  };
+
   return (
     <div className="relative h-[600px] w-full overflow-hidden bg-gray-900">
       <AnimatePresence mode="wait">
@@ -41,14 +84,25 @@ export default function Slider({ slides }: { slides: Slide[] }) {
           className="absolute inset-0"
         >
           {slides[current].type === "video" ? (
-            <video
-              src={slides[current].url}
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="h-full w-full object-cover opacity-60"
-            />
+            isDirectVideo(slides[current].url) ? (
+              <video
+                src={slides[current].url}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="h-full w-full object-cover opacity-60"
+              />
+            ) : (
+              <div className="absolute inset-0 opacity-60 pointer-events-none">
+                <iframe
+                  src={getEmbedUrl(slides[current].url)}
+                  className="h-full w-full scale-[1.5]"
+                  allow="autoplay; fullscreen"
+                  title="Background Video"
+                />
+              </div>
+            )
           ) : (
             <img
               src={slides[current].url}

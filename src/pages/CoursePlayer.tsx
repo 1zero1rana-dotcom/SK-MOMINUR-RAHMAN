@@ -42,6 +42,17 @@ export default function CoursePlayer() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedChapters, setExpandedChapters] = useState<string[]>([]);
   const [isMarkingComplete, setIsMarkingComplete] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const settingsSnap = await getDoc(doc(db, "settings", "site"));
+      if (settingsSnap.exists()) {
+        setWhatsappNumber(settingsSnap.data().contactPhone || "");
+      }
+    };
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -169,6 +180,66 @@ export default function CoursePlayer() {
     return enrollment?.completedLessons?.includes(lessonId);
   };
 
+  const isLessonLocked = (lessonId: string) => {
+    if (role === "admin") return false;
+    if (!course) return true;
+    
+    // Find all lessons in order
+    const allLessons: any[] = [];
+    course.chapters?.forEach((c: any) => {
+      c.lessons?.forEach((l: any) => {
+        allLessons.push(l);
+      });
+    });
+
+    const lessonIndex = allLessons.findIndex(l => l.id === lessonId);
+    if (lessonIndex <= 0) return false; // First lesson is never locked
+
+    // Check if the previous lesson is completed
+    const previousLesson = allLessons[lessonIndex - 1];
+    return !isLessonCompleted(previousLesson.id);
+  };
+
+  const goToNextLesson = () => {
+    if (!course || !activeLesson) return;
+    
+    const allLessons: any[] = [];
+    course.chapters?.forEach((c: any) => {
+      c.lessons?.forEach((l: any) => {
+        allLessons.push(l);
+      });
+    });
+
+    const currentIndex = allLessons.findIndex(l => l.id === activeLesson.id);
+    if (currentIndex < allLessons.length - 1) {
+      const nextLesson = allLessons[currentIndex + 1];
+      if (!isLessonLocked(nextLesson.id)) {
+        setActiveLesson(nextLesson);
+        // Ensure chapter is expanded
+        const nextChapter = course.chapters.find((c: any) => c.lessons.some((l: any) => l.id === nextLesson.id));
+        if (nextChapter && !expandedChapters.includes(nextChapter.id)) {
+          setExpandedChapters(prev => [...prev, nextChapter.id]);
+        }
+      }
+    }
+  };
+
+  const goToPreviousLesson = () => {
+    if (!course || !activeLesson) return;
+    
+    const allLessons: any[] = [];
+    course.chapters?.forEach((c: any) => {
+      c.lessons?.forEach((l: any) => {
+        allLessons.push(l);
+      });
+    });
+
+    const currentIndex = allLessons.findIndex(l => l.id === activeLesson.id);
+    if (currentIndex > 0) {
+      setActiveLesson(allLessons[currentIndex - 1]);
+    }
+  };
+
   const getEmbedUrl = (url: string) => {
     if (!url) return "";
     
@@ -176,18 +247,26 @@ export default function CoursePlayer() {
     const ytRegex = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const ytMatch = url.match(ytRegex);
     if (ytMatch && ytMatch[2].length === 11) {
-      return `https://www.youtube.com/embed/${ytMatch[2]}?autoplay=0&rel=0`;
+      return `https://www.youtube.com/embed/${ytMatch[2]}?autoplay=0&rel=0&modestbranding=1`;
     }
 
     // Vimeo
     const vimeoRegex = /(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/;
     const vimeoMatch = url.match(vimeoRegex);
     if (vimeoMatch) {
-      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}?badge=0&autopause=0&player_id=0&app_id=58479`;
+    }
+
+    // Google Drive
+    if (url.includes("drive.google.com")) {
+      const fileIdMatch = url.match(/\/file\/d\/([^\/]+)/) || url.match(/id=([^\&]+)/);
+      if (fileIdMatch) {
+        return `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
+      }
     }
 
     // If it's already an embed URL, return it
-    if (url.includes("/embed/") || url.includes("player.vimeo.com/video/")) {
+    if (url.includes("/embed/") || url.includes("player.vimeo.com/video/") || url.includes("/preview")) {
       return url;
     }
 
@@ -196,12 +275,28 @@ export default function CoursePlayer() {
 
   const isDirectVideo = (url: string) => {
     if (!url) return false;
-    // Handle Firebase Storage URLs and other direct links
-    return url.toLowerCase().includes(".mp4") || 
-           url.toLowerCase().includes(".webm") || 
-           url.toLowerCase().includes(".ogg") ||
-           url.includes("firebasestorage.googleapis.com") ||
-           url.startsWith("blob:");
+    const lowerUrl = url.toLowerCase();
+    
+    // Known direct video extensions
+    const directExtensions = [".mp4", ".webm", ".ogg", ".mov", ".m4v"];
+    if (directExtensions.some(ext => lowerUrl.includes(ext))) {
+      // Ensure it's not a YouTube/Vimeo link that happens to have these strings
+      if (!lowerUrl.includes("youtube.com") && !lowerUrl.includes("youtu.be") && !lowerUrl.includes("vimeo.com")) {
+        return true;
+      }
+    }
+    
+    // Firebase Storage
+    if (lowerUrl.includes("firebasestorage.googleapis.com") && lowerUrl.includes("alt=media")) {
+      return true;
+    }
+
+    // Blob URLs
+    if (lowerUrl.startsWith("blob:")) {
+      return true;
+    }
+
+    return false;
   };
 
   if (loading) {
@@ -254,10 +349,15 @@ export default function CoursePlayer() {
           {/* Video Player Section */}
           <div className="bg-black aspect-video w-full relative group">
             {activeLesson?.videoUrl ? (
-              isDirectVideo(activeLesson.videoUrl) ? (
+              isLessonLocked(activeLesson.id) ? (
+                <div className="flex h-full w-full flex-col items-center justify-center bg-gray-900/80 backdrop-blur-sm">
+                  <Lock className="h-16 w-16 text-indigo-500 mb-4" />
+                  <h3 className="text-xl font-black text-white">Lesson Locked</h3>
+                  <p className="mt-2 text-gray-400 font-medium">Complete the previous lesson to unlock this one.</p>
+                </div>
+              ) : isDirectVideo(activeLesson.videoUrl) ? (
                 <video 
                   key={activeLesson.id}
-                  src={activeLesson.videoUrl} 
                   controls 
                   controlsList="nodownload"
                   onContextMenu={(e) => e.preventDefault()}
@@ -266,7 +366,12 @@ export default function CoursePlayer() {
                   poster={course.thumbnail}
                   autoPlay
                   playsInline
-                />
+                >
+                  <source src={activeLesson.videoUrl} type="video/mp4" />
+                  <source src={activeLesson.videoUrl} type="video/webm" />
+                  <source src={activeLesson.videoUrl} type="video/ogg" />
+                  Your browser does not support the video tag.
+                </video>
               ) : (
                 <iframe
                   key={activeLesson.id}
@@ -290,33 +395,54 @@ export default function CoursePlayer() {
 
           {/* Lesson Content Section */}
           <div className="mx-auto max-w-4xl p-6 lg:p-12">
-            <div className="mb-8 flex items-center justify-between">
+            <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
               <div>
                 <h2 className="text-3xl font-black text-white">{activeLesson?.title}</h2>
                 <p className="mt-2 text-gray-400 font-medium">Chapter: {(course as any).chapters?.find((c: any) => c.lessons?.some((l: any) => l.id === activeLesson?.id))?.title}</p>
               </div>
-              <button 
-                onClick={() => markAsComplete(activeLesson.id)}
-                disabled={isMarkingComplete || isLessonCompleted(activeLesson.id)}
-                className={cn(
-                  "flex items-center gap-2 rounded-xl px-6 py-3 font-bold text-white shadow-lg transition-all",
-                  isLessonCompleted(activeLesson.id)
-                    ? "bg-green-600 shadow-green-900/20"
-                    : "bg-indigo-600 shadow-indigo-900/20 hover:bg-indigo-700"
-                )}
-              >
-                {isLessonCompleted(activeLesson.id) ? (
-                  <>
-                    <CheckCircle2 className="h-5 w-5" />
-                    Completed
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-5 w-5" />
-                    {isMarkingComplete ? "Marking..." : "Mark as Complete"}
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={goToPreviousLesson}
+                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-all"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button 
+                  onClick={() => markAsComplete(activeLesson.id)}
+                  disabled={isMarkingComplete || isLessonCompleted(activeLesson.id) || isLessonLocked(activeLesson.id)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl px-6 py-3 font-bold text-white shadow-lg transition-all",
+                    isLessonCompleted(activeLesson.id)
+                      ? "bg-green-600 shadow-green-900/20"
+                      : isLessonLocked(activeLesson.id)
+                        ? "bg-gray-800 text-gray-500 cursor-not-allowed"
+                        : "bg-indigo-600 shadow-indigo-900/20 hover:bg-indigo-700"
+                  )}
+                >
+                  {isLessonCompleted(activeLesson.id) ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5" />
+                      Completed
+                    </>
+                  ) : isLessonLocked(activeLesson.id) ? (
+                    <>
+                      <Lock className="h-5 w-5" />
+                      Locked
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-5 w-5" />
+                      {isMarkingComplete ? "Marking..." : "Mark as Complete"}
+                    </>
+                  )}
+                </button>
+                <button 
+                  onClick={goToNextLesson}
+                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-all"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              </div>
             </div>
 
             <div className="prose prose-invert max-w-none">
@@ -381,12 +507,18 @@ export default function CoursePlayer() {
                             {chapter.lessons?.map((lesson: any) => (
                               <button
                                 key={lesson.id}
-                                onClick={() => setActiveLesson(lesson)}
+                                onClick={() => {
+                                  if (!isLessonLocked(lesson.id)) {
+                                    setActiveLesson(lesson);
+                                  }
+                                }}
                                 className={cn(
                                   "flex w-full items-center gap-4 p-4 px-8 text-left transition-all",
                                   activeLesson?.id === lesson.id 
                                     ? "bg-indigo-600/10 text-indigo-400 ring-l-4 ring-indigo-600" 
-                                    : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                                    : isLessonLocked(lesson.id)
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
                                 )}
                               >
                                 <div className={cn(
@@ -395,10 +527,14 @@ export default function CoursePlayer() {
                                     ? "border-indigo-400 bg-indigo-400/20" 
                                     : isLessonCompleted(lesson.id)
                                       ? "border-green-500 bg-green-500/20"
-                                      : "border-gray-700"
+                                      : isLessonLocked(lesson.id)
+                                        ? "border-gray-800 bg-gray-900"
+                                        : "border-gray-700"
                                 )}>
                                   {isLessonCompleted(lesson.id) ? (
                                     <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                  ) : isLessonLocked(lesson.id) ? (
+                                    <Lock className="h-3 w-3 text-gray-600" />
                                   ) : (
                                     <Play className="h-3 w-3" />
                                   )}
@@ -423,6 +559,30 @@ export default function CoursePlayer() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* WhatsApp Floating Button */}
+      {whatsappNumber && (
+        <a
+          href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-2xl transition-transform hover:scale-110 active:scale-95"
+          title="Chat on WhatsApp"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="28"
+            height="28"
+            stroke="currentColor"
+            strokeWidth="2"
+            fill="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-11.7 8.38 8.38 0 0 1 3.8.9L21 3z"></path>
+          </svg>
+        </a>
+      )}
     </div>
   );
 }

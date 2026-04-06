@@ -36,10 +36,28 @@ import {
   Trophy,
   Star,
   Layout,
-  Clock
+  Clock,
+  GripVertical
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "../lib/utils";
+import { 
+  DndContext, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { 
   collection, 
   query, 
@@ -55,7 +73,7 @@ import {
   getDoc
 } from "firebase/firestore";
 import { db, auth, storage } from "../firebase";
-import { ref, uploadBytes, getDownloadURL, uploadString } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, uploadString, uploadBytesResumable } from "firebase/storage";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../contexts/AuthContext";
@@ -97,25 +115,35 @@ function FileUpload({
     setProgress(0);
 
     try {
-      console.log("FileUpload: Starting simple upload to path:", path, "File:", file.name, "Size:", file.size);
-      console.log("Current Auth User:", auth.currentUser?.uid || "Not Logged In");
+      console.log("FileUpload: Starting upload to path:", path, "File:", file.name, "Size:", file.size);
       
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
       const storageRef = ref(storage, `${path}/${Date.now()}_${sanitizedName}`);
       
-      // Use uploadBytes for better reliability in this environment
-      const result = await uploadBytes(storageRef, file);
-      console.log("FileUpload: Simple upload success! Getting download URL...");
-      
-      const url = await getDownloadURL(result.ref);
-      console.log("FileUpload success! URL:", url);
-      onUpload(url);
-      setIsUploading(false);
-      setProgress(100);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setProgress(progress);
+        }, 
+        (error) => {
+          console.error("FileUpload task error:", error);
+          setIsUploading(false);
+          alert(`Upload failed: ${error.message}`);
+        }, 
+        async () => {
+          const url = await getDownloadURL(uploadTask.snapshot.ref);
+          console.log("FileUpload success! URL:", url);
+          onUpload(url);
+          setIsUploading(false);
+          setProgress(100);
+        }
+      );
     } catch (error: any) {
       console.error("FileUpload error:", error.code, error.message);
       setIsUploading(false);
-      alert(`Upload failed (${error.code}): ${error.message}. Please check your internet connection or try a smaller file.`);
+      alert(`Upload failed (${error.code}): ${error.message}`);
     }
   };
 
@@ -196,8 +224,8 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex min-h-screen bg-gray-50 pt-16">
-      {/* Admin Sidebar */}
-      <aside className="fixed left-0 top-16 hidden h-[calc(100vh-64px)] w-64 flex-col border-r border-gray-100 bg-white lg:flex">
+      {/* Admin Sidebar - Visible on Tablet (md) and Desktop (lg) */}
+      <aside className="fixed left-0 top-16 hidden h-[calc(100vh-64px)] w-64 flex-col border-r border-gray-100 bg-white md:flex">
         <div className="flex-1 overflow-y-auto p-6">
           <div className="mb-8 flex items-center gap-4 rounded-2xl bg-indigo-900 p-4 text-white shadow-lg shadow-indigo-200">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500 font-black">
@@ -233,7 +261,31 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 lg:pl-64">
+      <main className="flex-1 md:pl-64">
+        {/* Mobile Tab Navigation - Visible only on mobile */}
+        <div className="sticky top-16 z-30 flex w-full overflow-x-auto bg-white px-4 py-3 shadow-sm md:hidden scrollbar-hide">
+          <div className="flex gap-2">
+            {adminNavItems.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all",
+                    isActive 
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" 
+                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  )}
+                >
+                  <item.icon className={cn("h-4 w-4", isActive ? "text-white" : "text-gray-400")} />
+                  {item.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="mx-auto max-w-7xl p-6 lg:p-12">
           {activeTab === "overview" && <AdminOverview />}
           {activeTab === "payments" && <AdminPayments />}
@@ -940,6 +992,9 @@ function AdminStudents() {
     const unsub = onSnapshot(collection(db, "users"), (snapshot) => {
       setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
+    }, (error) => {
+      console.error("AdminStudents snapshot error:", error);
+      setLoading(false);
     });
     return () => unsub();
   }, []);
@@ -1301,6 +1356,9 @@ function AdminSlider({ settings, onUpdate }: { settings: any; onUpdate: (s: any)
                       onUpload={(url) => handleSlideChange(slide.id, "url", url)}
                     />
                   </div>
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    Supports YouTube, Vimeo, Google Drive, and direct video links (.mp4, .webm).
+                  </p>
                 </div>
               </div>
 
@@ -1592,14 +1650,20 @@ function AdminOverview() {
       
       setStats(prev => ({ ...prev, pending, revenue }));
       setRecentPayments(payments.slice(0, 5));
+    }, (error) => {
+      console.error("AdminOverview payments snapshot error:", error);
     });
 
     const unsubCourses = onSnapshot(collection(db, "courses"), (snapshot) => {
       setStats(prev => ({ ...prev, courses: snapshot.size }));
+    }, (error) => {
+      console.error("AdminOverview courses snapshot error:", error);
     });
 
     const unsubUsers = onSnapshot(query(collection(db, "users"), where("role", "==", "student")), (snapshot) => {
       setStats(prev => ({ ...prev, students: snapshot.size }));
+    }, (error) => {
+      console.error("AdminOverview users snapshot error:", error);
     });
 
     return () => {
@@ -1686,6 +1750,9 @@ function AdminPayments() {
     const q = query(collection(db, "payments"), where("status", "==", "pending"));
     const unsub = onSnapshot(q, (snapshot) => {
       setPayments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    }, (error) => {
+      console.error("AdminPayments snapshot error:", error);
       setLoading(false);
     });
     return () => unsub();
@@ -1779,6 +1846,8 @@ function AdminCourses() {
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "courses"), (snapshot) => {
       setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("AdminCourses snapshot error:", error);
     });
     return () => unsub();
   }, []);
@@ -1810,10 +1879,20 @@ function AdminCourses() {
       if (editingCourse) {
         await updateDoc(doc(db, "courses", editingCourse.id), courseData);
       } else {
-        await addDoc(collection(db, "courses"), {
+        const docRef = await addDoc(collection(db, "courses"), {
           ...courseData,
           createdAt: serverTimestamp(),
           chapters: []
+        });
+
+        // Create notification for new course
+        await addDoc(collection(db, "notifications"), {
+          type: "new_course",
+          title: "New Course Available!",
+          message: `A new course "${courseData.title}" has been added. Enroll now!`,
+          courseId: docRef.id,
+          createdAt: serverTimestamp(),
+          readBy: []
         });
       }
       setShowAddCourse(false);
@@ -2016,12 +2095,61 @@ function ManageVideos({ course, onBack }: { course: any; onBack: () => void }) {
       await updateDoc(doc(db, "courses", course.id), {
         chapters: chapters
       });
+      
+      // Create notification for new content
+      const { addDoc, collection } = await import("firebase/firestore");
+      await addDoc(collection(db, "notifications"), {
+        type: "course_update",
+        title: "Course Updated",
+        message: `New content added to "${course.title}"`,
+        courseId: course.id,
+        createdAt: serverTimestamp(),
+        readBy: []
+      });
+
       console.log("Course content updated successfully!");
       onBack();
     } catch (error) {
       console.error("Error saving video management changes:", error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEndChapter = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setChapters((items) => {
+        const oldIndex = items.findIndex((i) => i.id === active.id);
+        const newIndex = items.findIndex((i) => i.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleDragEndLesson = (chapterId: string, event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setChapters((prevChapters) => 
+        prevChapters.map(ch => {
+          if (ch.id === chapterId) {
+            const oldIndex = ch.lessons.findIndex((l: any) => l.id === active.id);
+            const newIndex = ch.lessons.findIndex((l: any) => l.id === over.id);
+            return {
+              ...ch,
+              lessons: arrayMove(ch.lessons, oldIndex, newIndex)
+            };
+          }
+          return ch;
+        })
+      );
     }
   };
 
@@ -2052,69 +2180,33 @@ function ManageVideos({ course, onBack }: { course: any; onBack: () => void }) {
           </button>
         </div>
 
-        <div className="space-y-4">
-          {chapters.map((chapter) => (
-            <div key={chapter.id} className="overflow-hidden rounded-2xl ring-1 ring-gray-100">
-              <div 
-                className="flex cursor-pointer items-center justify-between bg-gray-50 p-4 transition-colors hover:bg-gray-100"
-                onClick={() => setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white font-bold text-indigo-600 shadow-sm">
-                    {chapters.indexOf(chapter) + 1}
-                  </div>
-                  <input 
-                    type="text" 
-                    value={chapter.title} 
-                    onChange={(e) => {
-                      setChapters(chapters.map(ch => ch.id === chapter.id ? { ...ch, title: e.target.value } : ch));
-                    }}
-                    className="bg-transparent font-bold text-gray-900 focus:outline-none"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setChapters(chapters.filter(ch => ch.id !== chapter.id));
-                    }}
-                    className="text-gray-400 hover:text-red-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                  {expandedChapter === chapter.id ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
-                </div>
-              </div>
-
-              {expandedChapter === chapter.id && (
-                <div className="p-4 space-y-4">
-                  {chapter.lessons.map((lesson: any) => (
-                    <LessonItem 
-                      key={lesson.id} 
-                      lesson={lesson} 
-                      courseId={course.id}
-                      onUpdate={(updates) => handleLessonUpdate(chapter.id, lesson.id, updates)}
-                      onRemove={() => {
-                        setChapters(chapters.map(ch => ch.id === chapter.id ? {
-                          ...ch,
-                          lessons: ch.lessons.filter((l: any) => l.id !== lesson.id)
-                        } : ch));
-                      }}
-                    />
-                  ))}
-                  <button 
-                    onClick={() => addLesson(chapter.id)}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-100 py-4 text-sm font-bold text-gray-400 hover:border-indigo-100 hover:bg-indigo-50 hover:text-indigo-600"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Lesson
-                  </button>
-                </div>
-              )}
+        <DndContext 
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEndChapter}
+        >
+          <SortableContext 
+            items={chapters.map(c => c.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-4">
+              {chapters.map((chapter) => (
+                <SortableChapter 
+                  key={chapter.id} 
+                  chapter={chapter} 
+                  chapters={chapters}
+                  expandedChapter={expandedChapter}
+                  setExpandedChapter={setExpandedChapter}
+                  setChapters={setChapters}
+                  addLesson={addLesson}
+                  handleLessonUpdate={handleLessonUpdate}
+                  handleDragEndLesson={handleDragEndLesson}
+                  courseId={course.id}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
 
         <div className="mt-12 flex justify-end">
           <button 
@@ -2130,7 +2222,159 @@ function ManageVideos({ course, onBack }: { course: any; onBack: () => void }) {
   );
 }
 
-function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; courseId: string; onUpdate: (u: any) => void; onRemove: () => void }) {
+function SortableChapter({ 
+  chapter, 
+  chapters, 
+  expandedChapter, 
+  setExpandedChapter, 
+  setChapters, 
+  addLesson, 
+  handleLessonUpdate, 
+  handleDragEndLesson,
+  courseId
+}: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: chapter.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 0,
+    opacity: isDragging ? 0.5 : 1
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className="overflow-hidden rounded-2xl ring-1 ring-gray-100 bg-white"
+    >
+      <div 
+        className="flex cursor-pointer items-center justify-between bg-gray-50 p-4 transition-colors hover:bg-gray-100"
+        onClick={() => setExpandedChapter(expandedChapter === chapter.id ? null : chapter.id)}
+      >
+        <div className="flex items-center gap-3">
+          <div 
+            {...attributes} 
+            {...listeners} 
+            className="cursor-grab p-1 text-gray-400 hover:text-indigo-600"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white font-bold text-indigo-600 shadow-sm">
+            {chapters.indexOf(chapter) + 1}
+          </div>
+          <input 
+            type="text" 
+            value={chapter.title} 
+            onChange={(e) => {
+              setChapters(chapters.map((ch: any) => ch.id === chapter.id ? { ...ch, title: e.target.value } : ch));
+            }}
+            className="bg-transparent font-bold text-gray-900 focus:outline-none"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setChapters(chapters.filter((ch: any) => ch.id !== chapter.id));
+            }}
+            className="text-gray-400 hover:text-red-600"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+          {expandedChapter === chapter.id ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+        </div>
+      </div>
+
+      {expandedChapter === chapter.id && (
+        <div className="p-4 space-y-4">
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={(e) => handleDragEndLesson(chapter.id, e)}
+          >
+            <SortableContext 
+              items={chapter.lessons.map((l: any) => l.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-4">
+                {chapter.lessons.map((lesson: any) => (
+                  <SortableLesson 
+                    key={lesson.id} 
+                    lesson={lesson} 
+                    courseId={courseId}
+                    onUpdate={(updates: any) => handleLessonUpdate(chapter.id, lesson.id, updates)}
+                    onRemove={() => {
+                      setChapters(chapters.map((ch: any) => ch.id === chapter.id ? {
+                        ...ch,
+                        lessons: ch.lessons.filter((l: any) => l.id !== lesson.id)
+                      } : ch));
+                    }}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+          <button 
+            onClick={() => addLesson(chapter.id)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-100 py-4 text-sm font-bold text-gray-400 hover:border-indigo-100 hover:bg-indigo-50 hover:text-indigo-600"
+          >
+            <Plus className="h-4 w-4" />
+            Add Lesson
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SortableLesson({ lesson, courseId, onUpdate, onRemove }: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: lesson.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 0,
+    opacity: isDragging ? 0.5 : 1
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <LessonItem 
+        lesson={lesson} 
+        courseId={courseId} 
+        onUpdate={onUpdate} 
+        onRemove={onRemove} 
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
+  );
+}
+
+function LessonItem({ lesson, courseId, onUpdate, onRemove, dragHandleProps }: { lesson: any; courseId: string; onUpdate: (u: any) => void; onRemove: () => void; dragHandleProps?: any }) {
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -2178,38 +2422,35 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
       const storageRef = ref(storage, `courses/${courseId}/videos/${Date.now()}_${sanitizedName}`);
       
-      console.log("Starting simple upload for:", file.name, "Size:", file.size, "Type:", file.type);
-      console.log("Current Auth User:", auth.currentUser?.uid || "Not Logged In");
+      console.log("Starting resumable upload for:", file.name, "Size:", file.size);
       
-      // Use uploadBytes for better reliability
-      const uploadPromise = uploadBytes(storageRef, file);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Upload timed out after 30 seconds. Large files may take longer, but this usually indicates a connection issue.")), 30000)
-      );
+      const uploadTask = uploadBytesResumable(storageRef, file);
 
-      const result = await Promise.race([uploadPromise, timeoutPromise]) as any;
-      console.log("LessonItem: Simple upload success! Getting download URL...");
-      
-      const url = await getDownloadURL(result.ref);
-      console.log("LessonItem success! URL:", url);
-      
-      onUpdate({ videoUrl: url, duration });
-      
-      setIsUploading(false);
-      setProgress(100);
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setProgress(progress);
+        },
+        (err: any) => {
+          console.error("Upload task error:", err);
+          let message = `Upload failed (${err.code || 'unknown'}): ${err.message}`;
+          if (err.code === 'storage/unauthorized') {
+            message = "Upload failed: Unauthorized. Please ensure Firebase Storage rules allow authenticated uploads.";
+          }
+          setError(message);
+          setIsUploading(false);
+        },
+        async () => {
+          const url = await getDownloadURL(uploadTask.snapshot.ref);
+          console.log("LessonItem success! URL:", url);
+          onUpdate({ videoUrl: url, duration });
+          setIsUploading(false);
+          setProgress(100);
+        }
+      );
     } catch (err: any) {
-      console.error("Upload error object:", err);
-      let message = `Upload failed (${err.code || 'unknown'}): ${err.message}`;
-      
-      if (err.code === 'storage/unauthorized') {
-        message = "Upload failed: Unauthorized. Please ensure Firebase Storage rules allow authenticated uploads.";
-      } else if (err.code === 'storage/canceled') {
-        message = "Upload canceled.";
-      } else if (err.code === 'storage/retry-limit-exceeded') {
-        message = "Upload failed: Retry limit exceeded. Please check your connection.";
-      }
-      
-      setError(message);
+      console.error("Upload initialization error:", err);
+      setError(`Upload failed: ${err.message}`);
       setIsUploading(false);
     }
   };
@@ -2217,6 +2458,12 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-white p-4 ring-1 ring-gray-100 lg:flex-row lg:items-center relative overflow-hidden">
       <div className="flex flex-1 items-center gap-3">
+        <div 
+          {...dragHandleProps} 
+          className="cursor-grab p-1 text-gray-400 hover:text-indigo-600"
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
           <Play className="h-4 w-4 fill-current" />
         </div>
@@ -2237,7 +2484,7 @@ function LessonItem({ lesson, courseId, onUpdate, onRemove }: { lesson: any; cou
               value={lesson.videoUrl} 
               onChange={(e) => onUpdate({ videoUrl: e.target.value })}
               className="flex-1 bg-gray-50 rounded-lg py-2 px-3 text-xs text-gray-900 font-medium focus:outline-none ring-1 ring-gray-100 focus:ring-indigo-600 transition-all"
-              placeholder="Paste Video URL (YouTube, Vimeo, Drive...)"
+              placeholder="Paste Video URL (YouTube, Vimeo, Drive, or Hostinger Link...)"
             />
             <button
               type="button"

@@ -16,6 +16,9 @@ export default function Courses() {
     const unsub = onSnapshot(collection(db, "courses"), (snapshot) => {
       setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching courses:", error);
+      setLoading(false);
     });
     return () => unsub();
   }, []);

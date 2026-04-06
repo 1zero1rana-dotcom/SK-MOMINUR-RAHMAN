@@ -3,18 +3,53 @@ import DashboardSidebar from "../components/Dashboard/Sidebar";
 import DashboardStats from "../components/Dashboard/Stats";
 import EnrolledCourseCard from "../components/Dashboard/EnrolledCourseCard";
 import UpcomingTasks from "../components/Dashboard/UpcomingTasks";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight, Play, Bell, CheckCircle2, Info } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, getDoc, doc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, getDoc, doc, orderBy, limit, updateDoc, arrayUnion } from "firebase/firestore";
 import { db, auth } from "../firebase";
+import { cn } from "../lib/utils";
 
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    const q = query(
+      collection(db, "notifications"),
+      orderBy("createdAt", "desc"),
+      limit(5)
+    );
+
+    const unsubNotifications = onSnapshot(q, (snapshot) => {
+      const notifs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(notifs);
+    }, (error) => {
+      console.error("Notifications snapshot error:", error);
+    });
+
+    return () => unsubNotifications();
+  }, [user, authLoading]);
+
+  const markNotificationAsRead = async (notifId: string) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, "notifications", notifId), {
+        readBy: arrayUnion(user.uid)
+      });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -44,6 +79,9 @@ export default function Dashboard() {
           })
         );
         setEnrolledCourses(coursesData.filter(c => c !== null));
+        setLoading(false);
+      }, (error) => {
+        console.error("Enrollments snapshot error:", error);
         setLoading(false);
       });
 
@@ -132,7 +170,51 @@ export default function Dashboard() {
             </div>
 
             {/* Sidebar Content */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-8">
+              {/* Notifications Section */}
+              <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100">
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-xl font-black text-gray-900">Notifications</h2>
+                  <Bell className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div className="space-y-4">
+                  {notifications.length === 0 ? (
+                    <p className="text-sm text-gray-500 font-medium text-center py-4">No new notifications</p>
+                  ) : (
+                    notifications.map((notif) => {
+                      const isRead = notif.readBy?.includes(user?.uid);
+                      return (
+                        <div 
+                          key={notif.id} 
+                          className={cn(
+                            "group relative flex items-start gap-4 rounded-2xl p-4 transition-all hover:bg-gray-50",
+                            !isRead && "bg-indigo-50/50 ring-1 ring-indigo-100"
+                          )}
+                          onClick={() => !isRead && markNotificationAsRead(notif.id)}
+                        >
+                          <div className={cn(
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                            notif.type === "course_update" ? "bg-indigo-100 text-indigo-600" : "bg-green-100 text-green-600"
+                          )}>
+                            {notif.type === "course_update" ? <Info className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-900 truncate">{notif.title}</p>
+                            <p className="text-xs text-gray-500 line-clamp-2 mt-1">{notif.message}</p>
+                            <p className="mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                              {notif.createdAt?.toDate ? new Date(notif.createdAt.toDate()).toLocaleDateString() : 'Just now'}
+                            </p>
+                          </div>
+                          {!isRead && (
+                            <div className="absolute top-4 right-4 h-2 w-2 rounded-full bg-indigo-600" />
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               <UpcomingTasks />
               
               <div className="mt-8 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-100">

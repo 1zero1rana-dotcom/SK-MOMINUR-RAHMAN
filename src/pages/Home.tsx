@@ -32,6 +32,9 @@ export default function Home() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching courses for home:", error);
+      setLoading(false);
     });
     return () => unsubscribe();
   }, []);

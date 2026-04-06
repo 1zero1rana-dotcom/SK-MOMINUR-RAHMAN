@@ -37,6 +37,15 @@ service cloud.firestore {
     //   - progress: number
     //   - status: string
     //
+    // Collection: notifications
+    // Fields:
+    //   - type: string (course_update, new_course, system)
+    //   - title: string
+    //   - message: string
+    //   - courseId: string
+    //   - createdAt: timestamp
+    //   - readBy: list (user UIDs)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -79,7 +88,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastDeviceId', 'displayName', 'photoURL'])) || isAdmin();
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.uid == resource.data.uid
+      );
     }
 
     match /courses/{courseId} {
@@ -107,6 +121,16 @@ service cloud.firestore {
     match /settings/{docId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow update: if isAuthenticated() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']) &&
+        request.resource.data.readBy.hasAll(resource.data.readBy) &&
+        request.resource.data.readBy.size() == resource.data.readBy.size() + 1 &&
+        request.auth.uid in request.resource.data.readBy;
+      allow create, delete: if isAdmin();
     }
   }
 }

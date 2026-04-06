@@ -63,6 +63,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setRoleFetched(true);
             }
           }, (error) => {
+            console.error("User doc snapshot error:", error);
+            // Crucial: set roleFetched to true even on error so the app doesn't hang
+            setRoleFetched(true);
             handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
           });
 
